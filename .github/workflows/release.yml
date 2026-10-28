@@ -52,27 +52,14 @@ jobs:
 
       - run: npm ci
 
-      # The update-signing key and password sign the update files so installed copies of
-      # Chatzooka only accept genuine updates (set both in Settings → Secrets and variables →
-      # Actions). Pasting them often adds a trailing line break, which breaks the key, so strip
-      # whitespace before handing them to Tauri.
-      - name: Prepare update-signing key
-        shell: bash
-        env:
-          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          key="$(printf '%s' "$KEY" | tr -d '[:space:]')"
-          password="$(printf '%s' "$PASSWORD" | tr -d '\r\n')"
-          if [ -z "$key" ]; then echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret is missing or empty."; exit 1; fi
-          echo "::add-mask::$key"
-          echo "::add-mask::$password"
-          echo "TAURI_SIGNING_PRIVATE_KEY=$key" >> "$GITHUB_ENV"
-          echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$password" >> "$GITHUB_ENV"
-
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the update files so installed copies of Chatzooka only accept genuine updates.
+          # Set both in the repo's Settings → Secrets and variables → Actions (paste with no
+          # trailing line break).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseName: "Chatzooka v__VERSION__"
