@@ -1,0 +1,31 @@
+[package]
+name = "chatzooka"
+version = "0.1.0"
+description = "Multi-stream chat client for Twitch and YouTube"
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+# Separate lib name avoids a Windows name clash with the binary.
+name = "chatzooka_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-opener = "2"
+# Link previews: fetch pages from Rust (webviews can't read other sites) and parse their meta tags.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "brotli"] }
+scraper = "0.20"
+tokio = { version = "1", features = ["net", "time"] }
+# OS credential store: Windows Credential Manager, macOS Keychain, Linux Secret Service.
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }

@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+dist/
+.svelte-kit/
+.vite/
+
+# Rust / Tauri
+target/
+src-tauri/target/
+src-tauri/gen/
+
+# Local data
+*.db
+*.db-journal
+*.sqlite
+
+# Claude Code local settings (machine paths and personal permissions)
+.claude/
+
+# Scratch scripts and recorded payloads from development
+*.jsonl
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
