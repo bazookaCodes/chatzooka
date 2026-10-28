@@ -83,7 +83,7 @@ The **SB** pill in the top bar turns green when connected. The Streamer.bot page
 
 You will need:
 
-- [Node.js](https://nodejs.org) 20 or newer
+- [Node.js](https://nodejs.org) 22.12 or newer
 - [Rust](https://rustup.rs) (stable)
 - Tauri's [platform prerequisites](https://tauri.app/start/prerequisites/) (on Windows: Microsoft C++ Build Tools and WebView2)
 
