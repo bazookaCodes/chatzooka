@@ -27,6 +27,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "category": "SocialNetworking",
     "shortDescription": "Twitch and YouTube chat in one window",
     "icon": [
@@ -36,5 +37,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUxRkQ2MkZFQTFBQTZCQkMKUldTOGE2cWgvbUw5VWZZcVBpdXNaVHhpd2FibmZhMEFyWCtza2JHbUlYOG9oOUNzSFJsQnUxQUwK",
+      "endpoints": ["https://github.com/bazookaCodes/chatzooka/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

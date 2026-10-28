@@ -9,6 +9,7 @@
   import LinkPreviewCard from "./lib/components/LinkPreviewCard.svelte";
   import ModeBar from "./lib/components/ModeBar.svelte";
   import Toasts from "./lib/components/Toasts.svelte";
+  import UpdateBanner from "./lib/components/UpdateBanner.svelte";
   import UserCard from "./lib/components/UserCard.svelte";
   import { bridge } from "./lib/streamerbot/bridge.svelte";
   import { redemptions } from "./lib/chat/redemptions.svelte";
@@ -20,9 +21,11 @@
   import { loadSetting, saveSetting } from "./lib/settings";
   import { streamerbot } from "./lib/streamerbot/connection.svelte";
   import { startChatEvents } from "./lib/streamerbot/events";
+  import { updater } from "./lib/updater.svelte";
 
   startChatEvents();
   void streamerbot.start();
+  updater.start();
 
   // History cleanup: once at startup, then every 6 hours while running.
   const prune = () => void pruneHistory(prefs.value.historyDays).catch((e) => console.warn("History cleanup failed", e));
@@ -82,6 +85,7 @@
 <div class="app">
   <TabBar bind:active={activeTab} {unread} onOpenSettings={() => openSettings()} />
   <ConnectionBanner onOpenSettings={openConnectionSettings} />
+  <UpdateBanner />
   {#if activeTab !== "mod"}<ModeBar />{/if}
   {#if activeTab === "events"}
     <EventsPanel messages={visible} />

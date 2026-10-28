@@ -99,7 +99,16 @@ Built with [Tauri 2](https://tauri.app), Svelte 5 and TypeScript, using [`@strea
 
 ## Releases
 
-Pushing a tag like `v0.1.0` (or running the **Release** workflow manually from the Actions tab) builds installers for Windows, macOS (Apple Silicon and Intel) and Linux and attaches them to a draft GitHub Release.
+Pushing a tag like `v0.1.0` (or running the **Release** workflow manually from the Actions tab) builds installers for Windows, macOS (Apple Silicon and Intel) and Linux and attaches them to a draft GitHub Release. Publishing the draft makes it the update that installed copies pick up.
+
+**Auto-update:** Chatzooka checks this repo's latest release for a new version when it starts and every 6 hours, and offers to install it (Settings → General → Updates to check by hand). Updates are signed, and the app only installs ones signed with this project's key. The release workflow needs two repository secrets for that:
+
+- `TAURI_SIGNING_PRIVATE_KEY`: the contents of the private update-signing key file
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: its password
+
+The matching public key is in `src-tauri/tauri.conf.json`. Forks that publish their own releases need their own key pair (`npx tauri signer generate`) and their own endpoint there.
+
+To release a new version, bump `version` in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, then tag it.
 
 ## License
 

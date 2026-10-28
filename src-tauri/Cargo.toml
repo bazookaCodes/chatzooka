@@ -23,6 +23,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-opener = "2"
+# Auto-update from GitHub Releases (signed), and restarting after an update.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 # Link previews: fetch pages from Rust (webviews can't read other sites) and parse their meta tags.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "brotli"] }
 scraper = "0.20"

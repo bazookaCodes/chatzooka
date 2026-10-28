@@ -1,2 +1,7 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Keep LF line endings for every text file on every OS, so Windows checkouts don't rewrite them.
+* text=auto eol=lf
+
+# Binary files: never touch.
+*.png binary
+*.ico binary
+*.icns binary

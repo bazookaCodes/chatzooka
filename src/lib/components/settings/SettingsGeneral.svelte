@@ -4,6 +4,7 @@
   import { twitchIrc } from "../../twitch/irc.svelte";
   import { FONT_CHOICES, prefs, type PlatformIcons, type RemovedMessages } from "../../prefs.svelte";
   import { toasts } from "../../toasts.svelte";
+  import { updater } from "../../updater.svelte";
   import SettingRow from "./SettingRow.svelte";
   import Toggle from "./Toggle.svelte";
 
@@ -41,6 +42,21 @@
     if (!status.updatedAt) return `${base} Lists are downloading…`;
     const hours = Math.round((Date.now() - status.updatedAt) / 3_600_000);
     return `${base} ${status.domainCount.toLocaleString()} domains + ${status.urlCount.toLocaleString()} links, updated ${hours < 1 ? "under an hour" : `${hours}h`} ago.`;
+  });
+
+  const updateDescription = $derived.by(() => {
+    switch (updater.status) {
+      case "available":
+        return `Version ${updater.latest} is available.`;
+      case "downloading":
+        return `Downloading version ${updater.latest}…`;
+      case "upToDate":
+        return "You're on the latest version.";
+      case "error":
+        return `Couldn't check for updates: ${updater.error}`;
+      default:
+        return "Chatzooka checks GitHub for new versions when it starts and every 6 hours. Updates are signed and verified before installing.";
+    }
   });
 
   async function updateLists() {
@@ -161,5 +177,16 @@
   </SettingRow>
   <SettingRow title="Hide Seconds" description="Hide seconds from displayed timestamps">
     <Toggle label="Hide Seconds" checked={p.hideSeconds} onchange={(v) => prefs.set("hideSeconds", v)} />
+  </SettingRow>
+
+  <h4>Updates</h4>
+  <SettingRow title={`Chatzooka ${updater.current ?? ""}`} description={updateDescription}>
+    {#if updater.status === "available"}
+      <button class="btn" onclick={() => void updater.install()}>Update &amp; restart</button>
+    {:else}
+      <button class="btn" disabled={updater.status === "checking" || updater.status === "downloading"} onclick={() => void updater.check()}>
+        {updater.status === "checking" ? "Checking…" : "Check for updates"}
+      </button>
+    {/if}
   </SettingRow>
 </div>

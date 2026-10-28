@@ -1,5 +1,7 @@
-# Builds installers for Windows, macOS and Linux and attaches them to a draft GitHub Release.
-# Runs when a version tag (e.g. v0.1.0) is pushed, or manually from the Actions tab.
+# Builds installers for Windows, macOS and Linux and attaches them to a draft GitHub Release,
+# plus signed update files and latest.json for auto-update. Installed copies see the update once
+# the draft is published. Runs when a version tag (e.g. v0.1.0) is pushed, or manually from the
+# Actions tab.
 name: Release
 
 on:
@@ -53,6 +55,10 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the update files so installed copies of Chatzooka only accept genuine updates.
+          # Set both in the repo's Settings → Secrets and variables → Actions.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseName: "Chatzooka v__VERSION__"
@@ -60,3 +66,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          # Publish latest.json (what installed copies check for updates); on Windows, update
+          # with the setup.exe installer rather than the .msi.
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
