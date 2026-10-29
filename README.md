@@ -82,6 +82,9 @@ The **SB** pill in the top bar turns green when connected. The Streamer.bot page
 
 ## Limits worth knowing
 
+- **Emotes follow your Streamer.bot broadcaster account.** The emote picker and Tab completion list the emotes of the **broadcaster** accounts connected in Streamer.bot (not its bot account):
+  - **Twitch and YouTube emotes** (your channel's emotes, your subs, YouTube's set) come only from Streamer.bot, so they're missing while it isn't running.
+  - **7TV, BetterTTV and FrankerFaceZ** emotes are loaded by Chatzooka itself: the global sets always, plus your Twitch channel's sets once Streamer.bot has told Chatzooka which channel is yours. That's remembered, so they keep working when Streamer.bot is off. If you connect a different Twitch broadcaster account in Streamer.bot, Chatzooka switches to that channel's emotes the next time it connects.
 - **YouTube** has no unban or delete-message method in Streamer.bot. The user card links to YouTube Studio for unbanning.
 - **YouTube viewer list:** YouTube doesn't share who's watching, so the list shows people who chatted in the last 30 minutes.
 - **Twitch join/leave notices** are batched by Twitch and can be up to a minute or two late; Twitch stops sending them in chats of roughly 1,000+ people.

@@ -14,6 +14,14 @@ export interface PickerEmote {
   global: boolean;
 }
 
+/**
+ * One of your channel's own emotes (Twitch channel emotes, or your 7TV/BTTV/FFZ channel set),
+ * as opposed to a global one. YouTube's list is all one big set, so it never counts.
+ */
+export function isChannelEmote(e: PickerEmote): boolean {
+  return !e.global && e.provider !== "youtube";
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 function providerOf(type: string, platform: Platform): EmoteProvider {
@@ -61,16 +69,18 @@ class EmoteList {
   }
 
   /**
-   * Emotes usable on at least one of the given platforms, plus BetterTTV/FrankerFaceZ ones
-   * Chatzooka loads itself (they're just words, so they show on both platforms in Chatzooka).
+   * Emotes usable on at least one of the given platforms, plus the 7TV/BetterTTV/FrankerFaceZ
+   * ones Chatzooka loads itself (they're just words, so they show on both platforms in
+   * Chatzooka, and they're there even when Streamer.bot isn't running). Your channel's emotes
+   * come first.
    */
   forPlatforms(platforms: Platform[]): PickerEmote[] {
-    const own = this.emotes.filter((e) => e.platforms.some((p) => platforms.includes(p)));
-    const known = new Set(own.map((e) => `${e.provider}:${e.name}`));
+    const fromSb = this.emotes.filter((e) => e.platforms.some((p) => platforms.includes(p)));
+    const known = new Set(fromSb.map((e) => `${e.provider}:${e.name}`));
     const extra = thirdPartyEmotes.list
       .filter((e) => !known.has(`${e.provider}:${e.name}`) && thirdPartyEmotes.find(e.name) === e)
       .map((e) => ({ name: e.name, url: e.url, provider: e.provider, platforms: ["twitch", "youtube"] as Platform[], global: e.global }));
-    return [...own, ...extra].sort((a, b) => Number(a.global) - Number(b.global));
+    return [...fromSb, ...extra].sort((a, b) => Number(isChannelEmote(b)) - Number(isChannelEmote(a)));
   }
 }
 

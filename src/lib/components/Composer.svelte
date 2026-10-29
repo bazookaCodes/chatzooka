@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Menu, SendHorizontal, Smile, X } from "@lucide/svelte";
   import { tick } from "svelte";
-  import { emoteList } from "../chat/emoteList.svelte";
+  import { emoteList, isChannelEmote } from "../chat/emoteList.svelte";
   import { runSlashCommand, SLASH_COMMANDS } from "../chat/slashCommands";
   import { chat } from "../chat/store.svelte";
   import type { Platform } from "../chat/types";
@@ -123,12 +123,14 @@
         .filter((n) => n.toLowerCase().startsWith(prefix))
         .map((n) => `@${n}`);
     }
+    // Your channel's emotes first, then shortest name first.
     const emotes = emoteList
       .forPlatforms(activeTargets.length ? activeTargets : ["twitch", "youtube"])
-      .map((e) => e.name)
-      .filter((n) => n.toLowerCase().startsWith(q));
+      .filter((e) => e.name.toLowerCase().startsWith(q))
+      .sort((a, b) => Number(isChannelEmote(b)) - Number(isChannelEmote(a)) || a.name.length - b.name.length || a.name.localeCompare(b.name))
+      .map((e) => e.name);
     const names = recentNames().filter((n) => n.toLowerCase().startsWith(q));
-    return [...new Set([...emotes.sort((a, b) => a.length - b.length || a.localeCompare(b)), ...names])];
+    return [...new Set([...emotes, ...names])];
   }
 
   /** Display names of recent chatters, newest first. */

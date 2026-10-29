@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { emoteList, type PickerEmote } from "../chat/emoteList.svelte";
+  import { emoteList, isChannelEmote, type PickerEmote } from "../chat/emoteList.svelte";
   import type { EmoteProvider, Platform } from "../chat/types";
+  import { streamerbot } from "../streamerbot/connection.svelte";
 
   let {
     platforms,
@@ -11,12 +12,19 @@
   let query = $state("");
   let search: HTMLInputElement | undefined = $state();
 
-  const GROUPS: { provider: EmoteProvider; label: string }[] = [
-    { provider: "twitch", label: "Twitch" },
-    { provider: "7tv", label: "7TV" },
-    { provider: "bttv", label: "BetterTTV" },
-    { provider: "ffz", label: "FrankerFaceZ" },
-    { provider: "youtube", label: "YouTube" },
+  // Your channel's own emotes (any provider) come first; each provider group below then has the
+  // rest, mostly globals.
+  const GROUPS: { id: string; label: string; match: (e: PickerEmote) => boolean }[] = [
+    { id: "channel", label: "Your channel", match: isChannelEmote },
+    ...(
+      [
+        ["twitch", "Twitch"],
+        ["7tv", "7TV"],
+        ["bttv", "BetterTTV"],
+        ["ffz", "FrankerFaceZ"],
+        ["youtube", "YouTube"],
+      ] as [EmoteProvider, string][]
+    ).map(([provider, label]) => ({ id: provider, label, match: (e: PickerEmote) => e.provider === provider && !isChannelEmote(e) })),
   ];
   /** Cap per group when not searching; YouTube alone has thousands. */
   const PER_GROUP = 120;
@@ -25,7 +33,7 @@
     const q = query.trim().toLowerCase();
     const available = emoteList.forPlatforms(platforms);
     return GROUPS.map((g) => {
-      let list = available.filter((e) => e.provider === g.provider);
+      let list = available.filter(g.match);
       if (q) list = list.filter((e) => e.name.toLowerCase().includes(q));
       return { ...g, total: list.length, emotes: list.slice(0, q ? 300 : PER_GROUP) };
     }).filter((g) => g.total > 0);
@@ -45,10 +53,16 @@
 <div class="picker" role="dialog" aria-label="Emote picker" tabindex="-1" onkeydown={onKeydown}>
   <input bind:this={search} bind:value={query} placeholder="Search emotes…" aria-label="Search emotes" />
   <div class="groups">
-    {#if groups.length === 0}
-      <p class="empty">{emoteList.emotes.length ? "No emotes match." : "Emotes load once Streamer.bot is connected."}</p>
+    {#if streamerbot.status !== "connected"}
+      <p class="notice">
+        Streamer.bot isn't connected, so Twitch and YouTube emotes aren't listed. 7TV, BetterTTV and FrankerFaceZ emotes
+        still work.
+      </p>
     {/if}
-    {#each groups as group (group.provider)}
+    {#if groups.length === 0}
+      <p class="empty">{query.trim() ? "No emotes match." : "Loading emotes…"}</p>
+    {/if}
+    {#each groups as group (group.id)}
       <section>
         <h4>{group.label} <span>{group.total}</span></h4>
         <div class="grid">
@@ -129,6 +143,17 @@
   .emote img {
     max-width: 32px;
     max-height: 32px;
+  }
+
+  .notice {
+    margin: 0 0 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: #2a2416;
+    border: 1px solid #4a3f22;
+    color: #e6cf8f;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .more,

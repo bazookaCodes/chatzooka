@@ -1,15 +1,18 @@
-// BetterTTV and FrankerFaceZ emotes, loaded by Chatzooka itself (global sets plus your Twitch
-// channel's) so they show in Twitch and YouTube chat whether or not Streamer.bot parses them.
-// Words in a message that match an emote name become emotes; words Streamer.bot already turned
-// into an emote are left alone. Both APIs are public and need no login.
+// 7TV, BetterTTV and FrankerFaceZ emotes, loaded by Chatzooka itself (global sets plus your
+// Twitch channel's) so they show in Twitch and YouTube chat and in the emote picker whether or
+// not Streamer.bot is running. Words in a message that match an emote name become emotes; words
+// Streamer.bot already turned into an emote are left alone. All three APIs are public and need
+// no login. Your Twitch channel ID comes from Streamer.bot and is remembered, so your channel's
+// emotes load even when Streamer.bot is off.
 import { prefs } from "../prefs.svelte";
+import { loadSetting, saveSetting } from "../settings";
 import { streamerbot } from "../streamerbot/connection.svelte";
 import type { EmoteProvider, Fragment } from "./types";
 
 export interface ThirdPartyEmote {
   name: string;
   url: string;
-  provider: Extract<EmoteProvider, "bttv" | "ffz">;
+  provider: Extract<EmoteProvider, "7tv" | "bttv" | "ffz">;
   zeroWidth: boolean;
   global: boolean;
 }
@@ -18,10 +21,30 @@ export interface ThirdPartyEmote {
 
 async function getJson(url: string): Promise<any | null> {
   const res = await fetch(url);
-  // 404 = this channel has no BTTV/FFZ account, which just means no channel emotes.
+  // 404 = this channel has no account on that site, which just means no channel emotes.
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).host}`);
   return res.json();
+}
+
+function sevenTvEmote(e: any, global: boolean): ThirdPartyEmote {
+  return {
+    name: e.name,
+    url: `https://cdn.7tv.app/emote/${e.id}/2x.webp`,
+    provider: "7tv",
+    // Zero-width: set on this copy of the emote (flag 1) or on the emote itself (flag 256).
+    zeroWidth: (Number(e.flags) & 1) !== 0 || (Number(e.data?.flags) & 256) !== 0,
+    global,
+  };
+}
+
+async function load7tv(twitchId: string | undefined): Promise<ThirdPartyEmote[]> {
+  const g = await getJson("https://7tv.io/v3/emote-sets/global");
+  const global = ((g?.emotes ?? []) as any[]).filter((e) => e?.id && e?.name).map((e) => sevenTvEmote(e, true));
+  if (!twitchId) return global;
+  const user = await getJson(`https://7tv.io/v3/users/twitch/${twitchId}`);
+  const own = ((user?.emote_set?.emotes ?? []) as any[]).filter((e) => e?.id && e?.name).map((e) => sevenTvEmote(e, false));
+  return [...own, ...global];
 }
 
 function bttvEmote(e: any, global: boolean): ThirdPartyEmote {
@@ -75,25 +98,31 @@ class ThirdPartyEmotes {
   #byName = new Map<string, ThirdPartyEmote>();
   #loadedFor: string | null = null;
 
-  /** Load the global sets now, and your channel's once Streamer.bot says which Twitch account is yours. */
+  /**
+   * Load now with the Twitch channel remembered from last time (or globals only), and reload if
+   * Streamer.bot reports a different channel.
+   */
   start(): void {
     $effect.root(() => {
       $effect(() => {
-        void this.load(streamerbot.accounts.twitch?.id);
+        const live = streamerbot.accounts.twitch?.id;
+        if (live) saveSetting("twitch.channelId", live);
+        void this.load(live ?? loadSetting<string | undefined>("twitch.channelId", undefined));
       });
     });
   }
 
-  /** Load (or reload) both providers for your Twitch channel; safe to call repeatedly. */
+  /** Load (or reload) all three providers for your Twitch channel; safe to call repeatedly. */
   async load(twitchId: string | undefined): Promise<void> {
     const key = twitchId ?? "";
     if (this.#loadedFor === key) return;
     this.#loadedFor = key;
-    const results = await Promise.allSettled([loadBttv(twitchId), loadFfz(twitchId)]);
+    const names = ["7TV", "BetterTTV", "FrankerFaceZ"];
+    const results = await Promise.allSettled([load7tv(twitchId), loadBttv(twitchId), loadFfz(twitchId)]);
     const all: ThirdPartyEmote[] = [];
     for (const [i, r] of results.entries()) {
       if (r.status === "fulfilled") all.push(...r.value);
-      else console.warn(`Couldn't load ${i === 0 ? "BetterTTV" : "FrankerFaceZ"} emotes`, r.reason);
+      else console.warn(`Couldn't load ${names[i]} emotes`, r.reason);
     }
     const byName = new Map<string, ThirdPartyEmote>();
     // Channel emotes come first in each list, so they win over a global with the same name.
@@ -107,7 +136,9 @@ class ThirdPartyEmotes {
     const e = this.#byName.get(word);
     if (!e) return undefined;
     const p = prefs.value;
-    return (e.provider === "bttv" ? p.bttvEmotes : p.ffzEmotes) ? e : undefined;
+    if (e.provider === "bttv") return p.bttvEmotes ? e : undefined;
+    if (e.provider === "ffz") return p.ffzEmotes ? e : undefined;
+    return e;
   }
 
   /** Turn matching words in a message's text into emotes. */
