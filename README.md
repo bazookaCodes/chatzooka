@@ -23,6 +23,21 @@ Runs on Windows, macOS and Linux.
 - **Links:** hover previews and a built-in phishing check (see [Privacy](#privacy)).
 - Streamer.bot-style settings: fonts, timestamps, badges, highlights, history cleanup and quick-action buttons.
 
+## Download
+
+Get the latest version from the [Releases page](https://github.com/bazookaCodes/chatzooka/releases/latest):
+
+| Your computer | Download this |
+|---|---|
+| **Windows** 10 / 11 | `Chatzooka_…_x64-setup.exe` |
+| **Mac** (any: Apple Silicon or Intel) | `Chatzooka_…_universal.dmg` |
+| **Linux** (Ubuntu, Debian, Mint, Pop!_OS) | `Chatzooka_…_amd64.deb` |
+| **Linux** (any other) | `Chatzooka_…_amd64.AppImage` |
+
+The other files on the release (`.sig`, `.tar.gz`, `latest.json`) are for automatic updates; you can ignore them.
+
+Chatzooka isn't code-signed, so the first launch shows a warning. On **Windows**, click **More info → Run anyway**. On **Mac**, right-click the app in Applications, choose **Open**, then **Open** again. After that, Chatzooka updates itself.
+
 ## What you need
 
 - **[Streamer.bot](https://streamer.bot) 1.0 or newer**, running whenever you use Chatzooka.
@@ -99,7 +114,7 @@ Built with [Tauri 2](https://tauri.app), Svelte 5 and TypeScript, using [`@strea
 
 ## Releases
 
-Pushing a tag like `v0.1.0` (or running the **Release** workflow manually from the Actions tab) builds installers for Windows, macOS (Apple Silicon and Intel) and Linux and attaches them to a draft GitHub Release. Publishing the draft makes it the update that installed copies pick up.
+Pushing a tag like `v0.1.0` (or running the **Release** workflow manually from the Actions tab) builds installers for Windows (`setup.exe`), macOS (one universal `.dmg`) and Linux (`.deb` and `.AppImage`) and attaches them to a draft GitHub Release with a download guide. Publishing the draft makes it the update that installed copies pick up.
 
 **Auto-update:** Chatzooka checks this repo's latest release for a new version when it starts and every 6 hours, and offers to install it (Settings → General → Updates to check by hand). Updates are signed, and the app only installs ones signed with this project's key. The release workflow needs two repository secrets for that:
 

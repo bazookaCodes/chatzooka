@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "app", "dmg", "appimage", "deb"],
     "createUpdaterArtifacts": true,
     "category": "SocialNetworking",
     "shortDescription": "Twitch and YouTube chat in one window",
