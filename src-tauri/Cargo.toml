@@ -1,5 +1,6 @@
 [package]
 name = "chatzooka"
+# Internal crate version only. The app's version comes from package.json (see tauri.conf.json).
 version = "0.1.0"
 description = "Multi-stream chat client for Twitch and YouTube"
 license = "MIT"

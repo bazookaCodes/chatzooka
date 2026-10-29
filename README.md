@@ -126,7 +126,14 @@ Pushing a tag like `v0.1.0` (or running the **Release** workflow manually from t
 
 The matching public key is in `src-tauri/tauri.conf.json`. Forks that publish their own releases need their own key pair (`npx tauri signer generate`) and their own endpoint there.
 
-To release a new version, bump `version` in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, then tag it.
+To release a new version:
+
+1. Push your changes to `main`.
+2. On the **Actions** tab, open **Release** → **Run workflow** and pick how to bump the version: **patch** (0.1.0 → 0.1.1), **minor** (→ 0.2.0) or **major** (→ 1.0.0). The workflow updates `package.json` (the only place the version is kept), commits that to `main` as "Release vX.Y.Z", and builds from it.
+3. When it finishes, publish the draft on the **Releases** page.
+4. Pull before your next change, so your copy has the version commit.
+
+Pushing a tag such as `v0.2.0` also starts a release, using the version already in `package.json` (no bump).
 
 ## License
 
