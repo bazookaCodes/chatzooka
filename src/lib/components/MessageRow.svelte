@@ -36,12 +36,18 @@
 
   const p = $derived(prefs.value);
 
-  const time = $derived.by(() => {
+  const timeFormat = $derived.by(() => {
     if (!p.showTimestamps) return null;
     const opts: Intl.DateTimeFormatOptions = { hour: p.timestamps24h ? "2-digit" : "numeric", minute: "2-digit", hour12: !p.timestamps24h };
     if (!p.hideSeconds) opts.second = "2-digit";
-    return formatter(opts).format(message.timestamp);
+    return formatter(opts);
   });
+  const time = $derived(timeFormat?.format(message.timestamp) ?? null);
+  // The widest times this format can show (12:59 AM and PM). Invisible copies sit under the real
+  // time so "9:13 PM" and "10:41 AM" take the same width and the names after them line up.
+  const timeSizers = $derived(
+    timeFormat ? [...new Set([0, 12].map((h) => timeFormat.format(new Date(2000, 0, 1, h, 59, 59))))] : [],
+  );
   const highlight = $derived(highlightFor(message));
   const sevenTvBadge = $derived(p.showBadges ? cosmetics.badgeFor(message.platform, message.author.id) : null);
   const platformIcon = $derived(showPlatform && p.platformIcons !== "never");
@@ -126,6 +132,7 @@
   class:presence={message.kind === "presence"}
   style:--accent={isEventRow ? ACCENTS[message.kind] : undefined}
   class:hl={!!highlight}
+  class:labelled={!!highlight?.label}
   style:--hl={highlight?.color}
   class:deleted={message.deleted}
   role="listitem"
@@ -140,7 +147,7 @@
   {#if highlight?.label}
     <span class="hl-label">{highlight.label}</span>
   {/if}
-  {#if time}<span class="time">{time}</span>{/if}
+  {#if time}<span class="time">{#each timeSizers as s (s)}<span class="time-sizer" aria-hidden="true">{s}</span>{/each}<span>{time}</span></span>{/if}
   {#if platformIcon}<span class="platform"><PlatformIcon platform={message.platform} size={15} /></span>{/if}
   {#if p.showAvatars}
     {#if message.author.avatarUrl}
@@ -245,6 +252,17 @@
     font-size: 0.93em;
     margin-right: 6px;
     font-variant-numeric: tabular-nums;
+    display: inline-grid;
+    justify-items: end;
+  }
+
+  .time > span {
+    grid-area: 1 / 1;
+  }
+
+  .time-sizer {
+    visibility: hidden;
+    user-select: none;
   }
 
   .platform,
@@ -366,10 +384,17 @@
     background: color-mix(in srgb, var(--hl) 22%, var(--bg));
   }
 
+  /* Room above the text for the corner label, so it never sits on top of the message when the
+     window is narrow. */
+  .row.labelled {
+    padding-top: 15px;
+  }
+
   .hl-label {
     position: absolute;
     top: 2px;
     right: 10px;
+    line-height: 12px;
     font-size: 9.5px;
     font-weight: 800;
     letter-spacing: 0.06em;
