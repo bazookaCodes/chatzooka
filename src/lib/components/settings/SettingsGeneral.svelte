@@ -100,6 +100,20 @@
     />
   </SettingRow>
 
+  <h4>Window</h4>
+  <SettingRow title="Always on Top" description="Keep Chatzooka above other windows, e.g. over a game on one monitor. Also the pin button in the tab bar.">
+    <Toggle label="Always on Top" checked={p.alwaysOnTop} onchange={(v) => prefs.set("alwaysOnTop", v)} />
+  </SettingRow>
+  <SettingRow title="Compact Mode" description="Tighter rows, a shorter tab bar and message box, to fit more chat in a small window. Also the button next to the pin in the tab bar.">
+    <Toggle label="Compact Mode" checked={p.compact} onchange={(v) => prefs.set("compact", v)} />
+  </SettingRow>
+  <SettingRow
+    title="Stream Info Bar"
+    description="A bar under the tabs showing whether you're live, uptime, stream viewers, title and category for each platform. Click it to change the title or Twitch category (needs Chatzooka Bridge v5)."
+  >
+    <Toggle label="Stream Info Bar" checked={p.streamInfoBar} onchange={(v) => prefs.set("streamInfoBar", v)} />
+  </SettingRow>
+
   <h4>Appearance</h4>
   <SettingRow title="Alternate Background" description="Alternate the background color of every other chat message">
     <Toggle label="Alternate Background" checked={p.alternateBackground} onchange={(v) => prefs.set("alternateBackground", v)} />

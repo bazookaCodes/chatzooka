@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Eye, EyeOff, Highlighter, History, Plug, Settings, X, Zap } from "@lucide/svelte";
+  import { Eye, EyeOff, Highlighter, History, MessageSquareOff, Plug, Settings, X, Zap } from "@lucide/svelte";
   import "./settings/settings-shared.css";
   import SettingsGeneral from "./settings/SettingsGeneral.svelte";
   import SettingsHighlights from "./settings/SettingsHighlights.svelte";
   import SettingsHistory from "./settings/SettingsHistory.svelte";
+  import SettingsIgnore from "./settings/SettingsIgnore.svelte";
   import SettingsQuickActions from "./settings/SettingsQuickActions.svelte";
   import { redemptions } from "../chat/redemptions.svelte";
   import { bridge } from "../streamerbot/bridge.svelte";
@@ -12,10 +13,11 @@
 
   let { open = $bindable(), section = $bindable("general") }: { open: boolean; section?: SectionId } = $props();
 
-  type SectionId = "general" | "highlights" | "connection" | "history" | "quickActions";
+  type SectionId = "general" | "highlights" | "ignore" | "connection" | "history" | "quickActions";
   const SECTIONS = [
     { id: "general", label: "General", icon: Settings },
     { id: "highlights", label: "Highlights", icon: Highlighter },
+    { id: "ignore", label: "Ignore", icon: MessageSquareOff },
     { id: "connection", label: "Streamer.bot", icon: Plug },
     { id: "history", label: "History", icon: History },
     { id: "quickActions", label: "Quick Actions", icon: Zap },
@@ -96,6 +98,8 @@
         <SettingsGeneral />
       {:else if section === "highlights"}
         <SettingsHighlights />
+      {:else if section === "ignore"}
+        <SettingsIgnore />
       {:else if section === "history"}
         <SettingsHistory />
       {:else if section === "quickActions"}

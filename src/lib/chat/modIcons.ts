@@ -1,5 +1,23 @@
 // Small icons shown at the right edge of Mod actions rows, like Streamer.bot's chat.
-import { Ban, Clock, Eraser, Heart, Hourglass, Repeat, Shield, Smile, Star, TimerOff, Trash2, UserCheck, Users } from "@lucide/svelte";
+import {
+  Ban,
+  Bot,
+  Clock,
+  Eraser,
+  Gem,
+  Heart,
+  Hourglass,
+  Repeat,
+  Shield,
+  Smile,
+  Star,
+  Sword,
+  TimerOff,
+  Trash2,
+  TriangleAlert,
+  UserCheck,
+  Users,
+} from "@lucide/svelte";
 import type { Component } from "svelte";
 
 export type ModIcon =
@@ -15,7 +33,13 @@ export type ModIcon =
   | "emote"
   | "unique"
   | "shield"
-  | "members";
+  | "members"
+  | "mod"
+  | "unmod"
+  | "vip"
+  | "unvip"
+  | "warn"
+  | "automod";
 
 export const MOD_ICONS: Record<ModIcon, { icon: Component<{ size?: number }>; color: string }> = {
   ban: { icon: Ban, color: "#ff6b6b" },
@@ -31,4 +55,10 @@ export const MOD_ICONS: Record<ModIcon, { icon: Component<{ size?: number }>; co
   unique: { icon: Repeat, color: "#c0c0c0" },
   shield: { icon: Shield, color: "#c0c0c0" },
   members: { icon: Users, color: "#c0c0c0" },
+  mod: { icon: Sword, color: "#5cc98a" },
+  unmod: { icon: Sword, color: "#8c8c8c" },
+  vip: { icon: Gem, color: "#e05bd0" },
+  unvip: { icon: Gem, color: "#8c8c8c" },
+  warn: { icon: TriangleAlert, color: "#f5c542" },
+  automod: { icon: Bot, color: "#7fb2ff" },
 };

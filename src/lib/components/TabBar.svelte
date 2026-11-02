@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Gavel, MessagesSquare, Settings, Sparkles } from "@lucide/svelte";
+  import { ChevronsDownUp, ChevronsUpDown, Gavel, MessagesSquare, Pin, PinOff, Settings, Sparkles } from "@lucide/svelte";
   import type { TabId } from "../chat/types";
   import ConnectionStatus from "./ConnectionStatus.svelte";
   import PlatformIcon from "./PlatformIcon.svelte";
@@ -52,6 +52,24 @@
   <div class="right">
     {#if prefs.value.viewerCount}<ViewerCount />{/if}
     <ConnectionStatus />
+    <button
+      class="icon-btn compact-btn"
+      aria-label={prefs.value.compact ? "Normal size" : "Compact mode"}
+      title={prefs.value.compact ? "Normal size" : "Compact mode: tighter rows, for a small window"}
+      onclick={() => prefs.set("compact", !prefs.value.compact)}
+    >
+      {#if prefs.value.compact}<ChevronsUpDown size={17} />{:else}<ChevronsDownUp size={17} />{/if}
+    </button>
+    <button
+      class="icon-btn"
+      class:on={prefs.value.alwaysOnTop}
+      aria-label="Always on top"
+      aria-pressed={prefs.value.alwaysOnTop}
+      title={prefs.value.alwaysOnTop ? "Always on top (on): click to stop" : "Always on top: keep Chatzooka above other windows"}
+      onclick={() => prefs.set("alwaysOnTop", !prefs.value.alwaysOnTop)}
+    >
+      {#if prefs.value.alwaysOnTop}<Pin size={17} />{:else}<PinOff size={17} />{/if}
+    </button>
     <button class="icon-btn" aria-label="Settings" title="Settings" onclick={onOpenSettings}>
       <Settings size={18} />
     </button>
@@ -63,7 +81,7 @@
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    height: 40px;
+    height: var(--tabbar-h);
     padding: 0 8px 0 4px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -71,13 +89,17 @@
 
   .tabs {
     display: flex;
+    flex-shrink: 1;
+    min-width: 140px;
   }
 
   .tab {
     position: relative;
     display: grid;
     place-items: center;
-    width: 44px;
+    width: var(--tab-w);
+    min-width: 28px;
+    flex-shrink: 1;
     color: var(--text-muted);
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -131,7 +153,19 @@
     color: var(--text-muted);
   }
 
-  .icon-btn:hover {
+  .icon-btn:hover,
+  .icon-btn.on {
     color: var(--text);
+  }
+
+  /* Narrow window: tighter spacing, and compact mode stays reachable from Settings. */
+  @media (max-width: 400px) {
+    .right {
+      gap: 5px;
+    }
+
+    .compact-btn {
+      display: none;
+    }
   }
 </style>

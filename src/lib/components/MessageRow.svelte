@@ -13,18 +13,22 @@
 
 <script lang="ts">
   import { highlightFor } from "../chat/highlights";
+  import { isIgnored } from "../chat/ignore";
   import { linkHover } from "../linkPreview.svelte";
   import { linkSafety } from "../linkSafety.svelte";
   import { openExternal } from "../openExternal";
   import { toasts } from "../toasts.svelte";
+  import { CornerUpLeft } from "@lucide/svelte";
   import { contextMenu } from "../chat/contextMenu.svelte";
   import { canModerate } from "../chat/moderation";
+  import { reply } from "../chat/reply.svelte";
   import { MOD_ICONS } from "../chat/modIcons";
   import type { ChatMessage, Fragment } from "../chat/types";
   import { cosmetics } from "../seventv/cosmetics.svelte";
   import ModActions from "./ModActions.svelte";
   import PaintedName from "./PaintedName.svelte";
   import RedemptionButtons from "./RedemptionButtons.svelte";
+  import AutoModButtons from "./AutoModButtons.svelte";
   import PlatformIcon from "./PlatformIcon.svelte";
   import { prefs } from "../prefs.svelte";
 
@@ -49,6 +53,10 @@
     timeFormat ? [...new Set([0, 12].map((h) => timeFormat.format(new Date(2000, 0, 1, h, 59, 59))))] : [],
   );
   const highlight = $derived(highlightFor(message));
+  // "Collapse" mode: ignored messages show as one quiet line until clicked. (In "Hide" mode they
+  // never reach this component.)
+  let revealed = $state(false);
+  const collapsed = $derived(!revealed && p.ignoredDisplay === "collapse" && isIgnored(message));
   const sevenTvBadge = $derived(p.showBadges ? cosmetics.badgeFor(message.platform, message.author.id) : null);
   const platformIcon = $derived(showPlatform && p.platformIcons !== "never");
 
@@ -74,10 +82,11 @@
     member: "#2ba640",
     system: "#8c8c8c",
     modaction: "#e57373",
+    automod: "#7fb2ff",
     presence: "#5c5c5c",
   };
   const isEventRow = $derived(message.kind !== "chat" && message.kind !== "action");
-  const modIcon = $derived(message.event?.icon ? MOD_ICONS[message.event.icon] : undefined);
+  const modIcon = $derived(message.kind === "automod" ? MOD_ICONS.automod : message.event?.icon ? MOD_ICONS[message.event.icon] : undefined);
 
   type EmoteFragment = Extract<Fragment, { type: "emote" }>;
   type Piece = Exclude<Fragment, EmoteFragment> | { type: "emote"; base: EmoteFragment; overlays: EmoteFragment[] };
@@ -103,6 +112,22 @@
     void openExternal(url);
   }
 
+  /** Scroll to the message this reply answers, if it's still in the list. */
+  function showParent(e: MouseEvent) {
+    const id = message.replyTo?.id;
+    const list = (e.currentTarget as HTMLElement).closest(".chat");
+    const parent = id ? list?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`) : null;
+    if (!parent) {
+      toasts.show("That message isn't in this chat view anymore");
+      return;
+    }
+    parent.scrollIntoView({ block: "center" });
+    parent.animate([{ boxShadow: "inset 3px 0 0 var(--text)", background: "#3a3a3a" }, { boxShadow: "inset 3px 0 0 transparent" }], {
+      duration: 1800,
+      easing: "ease-out",
+    });
+  }
+
   const pieces = $derived.by(() => {
     const out: Piece[] = [];
     for (const f of message.fragments) {
@@ -123,8 +148,14 @@
   });
 </script>
 
+{#if collapsed}
+<button class="row ignored" class:alt={alt && p.alternateBackground} title="Ignored (Settings → Ignore). Click to show." onclick={() => (revealed = true)}>
+  Hidden message from {message.author.displayName}
+</button>
+{:else}
 <div
   class="row"
+  data-id={message.id}
   class:alt={alt && p.alternateBackground}
   class:action={message.kind === "action"}
   style:--action-color={message.author.color}
@@ -141,11 +172,16 @@
     contextMenu.open(message, e.clientX, e.clientY);
   }}
 >
-  {#if canModerate(message) && !message.deleted}
+  {#if (canModerate(message) || reply.canReply(message)) && !message.deleted}
     <ModActions {message} />
   {/if}
   {#if highlight?.label}
     <span class="hl-label">{highlight.label}</span>
+  {/if}
+  {#if message.replyTo}
+    <button class="reply-line" title="Replying to {message.replyTo.name}: {message.replyTo.text}" onclick={showParent}>
+      <CornerUpLeft size={12} /><span>Replying to <strong>@{message.replyTo.name}</strong>: {message.replyTo.text}</span>
+    </button>
   {/if}
   {#if time}<span class="time">{#each timeSizers as s (s)}<span class="time-sizer" aria-hidden="true">{s}</span>{/each}<span>{time}</span></span>{/if}
   {#if platformIcon}<span class="platform"><PlatformIcon platform={message.platform} size={15} /></span>{/if}
@@ -175,6 +211,13 @@
     {#if message.redemption.input}
       <span class="event-text">{message.redemption.input}</span>
     {/if}
+  {:else if message.kind === "automod" && message.automod}
+    <PaintedName author={message.author} platform={message.platform} />
+    <span class="headline">
+      held by AutoMod{#if message.automod.reason}<span class="amount">{message.automod.reason}</span>{/if}
+      <AutoModButtons {message} />
+    </span>
+    <span class="event-text text" class:held={message.automod.status !== "approved"}>{@render messageText()}</span>
   {:else if isEventRow}
     <PaintedName author={message.author} platform={message.platform} />
     <span class="headline">
@@ -195,6 +238,7 @@
     <span class="mod-icon" style:color={modIcon.color} aria-hidden="true"><modIcon.icon size={15} /></span>
   {/if}
 </div>
+{/if}
 
 {#snippet messageText()}
   {#each pieces as piece, i (i)}
@@ -225,7 +269,7 @@
 <style>
   .row {
     position: relative;
-    padding: 7px 14px 7px 28px;
+    padding: var(--row-pad-y) 14px var(--row-pad-y) 28px;
     line-height: 1.45;
     overflow-wrap: anywhere;
     user-select: text;
@@ -343,6 +387,46 @@
     margin-left: 4px;
   }
 
+  .reply-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    margin-bottom: 1px;
+    font-size: 0.82em;
+    color: var(--text-muted);
+    text-align: left;
+  }
+
+  .reply-line span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .reply-line strong {
+    font-weight: 600;
+  }
+
+  .reply-line:hover {
+    color: var(--text);
+  }
+
+  .row.ignored {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    font-size: 0.85em;
+    font-style: italic;
+    color: var(--text-faint);
+  }
+
+  .row.ignored:hover {
+    color: var(--text-muted);
+  }
+
   /* Private join/leave notices: quiet, smaller, no tint. */
   .presence {
     padding-top: 3px;
@@ -371,6 +455,11 @@
   .event-text {
     display: block;
     margin-top: 3px;
+  }
+
+  /* AutoMod-held text nobody has let into chat yet. */
+  .event-text.held {
+    color: var(--text-muted);
   }
 
   /* Highlighted chat messages (Settings → Highlights): tinted with the highlight color, plus a

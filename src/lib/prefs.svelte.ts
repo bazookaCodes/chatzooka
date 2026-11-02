@@ -5,6 +5,7 @@ import { loadSetting, saveSetting } from "./settings";
 
 export type RemovedMessages = "strike" | "hide";
 export type PlatformIcons = "always" | "all-tab" | "never";
+export type IgnoredDisplay = "hide" | "collapse";
 
 export type HighlightCategory =
   | "mention"
@@ -66,11 +67,24 @@ export interface Prefs {
   viewerCount: boolean;
   /** Leave known bots and viewer-list crawlers out of the user list and viewer count. */
   hideBots: boolean;
+  /** Keep the Chatzooka window above other windows (the pin in the tab bar). */
+  alwaysOnTop: boolean;
+  /** Tighter rows and a shorter tab bar, for a small window over a game. */
+  compact: boolean;
+  /** Bar under the tabs with live status, uptime, viewers, title and category. */
+  streamInfoBar: boolean;
   // Highlights
   highlights: Record<HighlightCategory, HighlightSetting>;
   patterns: HighlightPattern[];
   highlightUsers: FlaggedUser[];
   ignoreHighlightUsers: FlaggedUser[];
+  // Ignore
+  /** Users whose chat is hidden or collapsed (on this computer only). */
+  ignoredUsers: FlaggedUser[];
+  /** Words or phrases that hide a message (whole words, any case). */
+  ignoredWords: string[];
+  /** Ignored messages: left out entirely, or shown as a one-line "hidden message" row. */
+  ignoredDisplay: IgnoredDisplay;
   // History
   /** Delete saved chat history older than this many days; 0 keeps everything. */
   historyDays: number;
@@ -111,10 +125,16 @@ export const DEFAULT_PREFS: Prefs = {
   joinLeaveNotices: false,
   viewerCount: true,
   hideBots: true,
+  alwaysOnTop: false,
+  compact: false,
+  streamInfoBar: true,
   highlights: DEFAULT_HIGHLIGHTS,
   patterns: [],
   highlightUsers: [],
   ignoreHighlightUsers: [],
+  ignoredUsers: [],
+  ignoredWords: [],
+  ignoredDisplay: "hide",
   historyDays: 0,
   quickActions: [],
 };
@@ -169,7 +189,20 @@ class PrefsStore {
       family ? `"${family}", "Segoe UI", system-ui, sans-serif` : `"Segoe UI", system-ui, -apple-system, "Helvetica Neue", Ubuntu, sans-serif`,
     );
     if (family) loadGoogleFont(family);
+    document.documentElement.classList.toggle("compact", this.value.compact);
+    applyAlwaysOnTop(this.value.alwaysOnTop);
   }
+}
+
+let onTop: boolean | null = null;
+function applyAlwaysOnTop(on: boolean): void {
+  if (on === onTop || !("__TAURI_INTERNALS__" in window)) return;
+  onTop = on;
+  void import("@tauri-apps/api/window").then(({ getCurrentWindow }) =>
+    getCurrentWindow()
+      .setAlwaysOnTop(on)
+      .catch((e) => console.warn("Couldn't change always on top", e)),
+  );
 }
 
 const loadedFonts = new Set<string>();

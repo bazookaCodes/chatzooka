@@ -6,6 +6,7 @@ import { logChatSetting } from "../streamerbot/modEvents";
 import { ircJoin, ircNames, ircPart } from "../streamerbot/presence.svelte";
 import { onTwitchPrivmsg } from "./firstMessage";
 import { twitchIrc } from "./irc.svelte";
+import { onTwitchReplyTags } from "./replies";
 
 let started = false;
 
@@ -16,7 +17,10 @@ export function startTwitchReadOnly(): void {
     names: ircNames,
     join: ircJoin,
     part: ircPart,
-    privmsg: onTwitchPrivmsg,
+    privmsg: (tags) => {
+      onTwitchPrivmsg(tags);
+      onTwitchReplyTags(tags);
+    },
     roomState: (tags) => {
       for (const c of chatModes.applyRoomState(tags)) logChatSetting("twitch", c.headline, c.icon);
     },

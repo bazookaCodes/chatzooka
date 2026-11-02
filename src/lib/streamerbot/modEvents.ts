@@ -6,6 +6,7 @@
 import { durationLabel, recentTimeout } from "../chat/moderation";
 import type { ModIcon } from "../chat/modIcons";
 import { chat } from "../chat/store.svelte";
+import { thirdPartyEmotes } from "../chat/thirdPartyEmotes.svelte";
 import type { ChatAuthor, ChatMessage, Fragment, Platform } from "../chat/types";
 import { fallbackColor } from "./normalize";
 
@@ -72,7 +73,7 @@ let logCounter = 0;
 /** Add a row to the Mod actions tab. */
 function log(platform: Platform, author: ChatAuthor, d: Raw, headline: string, icon: ModIcon, fragments: Fragment[] = []): void {
   const by = moderatorName(d);
-  const reason = pick(d, "reason");
+  const reason = pick(d, "reason", "warning.reason");
   const parts = [headline];
   if (by) parts.push(`by ${by}`);
   if (reason) parts.push(`reason: ${reason}`);
@@ -134,6 +135,62 @@ function messageDeleted(platform: Platform, d: Raw): void {
   log(platform, original?.author ?? targetAuthor(platform, d), d, "message deleted", "delete", fragments);
 }
 
+/** Role changes and warnings: a Mod actions row, nothing changes in chat. */
+function roleChange(d: Raw, headline: string, icon: ModIcon): void {
+  log("twitch", targetAuthor("twitch", d), d, headline, icon);
+}
+
+// --- AutoMod ---
+
+function heldId(d: Raw): string | undefined {
+  const id = pick(d, "messageId", "message_id", "message.id", "msgId", "id");
+  return id === undefined ? undefined : String(id);
+}
+
+function holdReason(d: Raw): string | undefined {
+  const reason = String(pick(d, "reason", "automod.reason") ?? "");
+  if (/blocked/i.test(reason)) {
+    const term = pick(d, "blockedTerm.term", "blocked_term.terms_found.0.text", "blockedTerms.0.text", "terms.0");
+    return term ? `blocked term "${term}"` : "blocked term";
+  }
+  const category = pick(d, "category", "automod.category");
+  const level = pick(d, "level", "automod.level");
+  if (!category) return undefined;
+  return level !== undefined ? `${category} (level ${level})` : String(category);
+}
+
+function autoModHeld(d: Raw): void {
+  const id = heldId(d);
+  if (!id || chat.messages.some((m) => m.automod?.heldId === id)) return;
+  const text = pick(d, "message.text", "rawInput", "text", "message");
+  chat.add({
+    id: `automod-${id}`,
+    platform: "twitch",
+    timestamp: Date.now(),
+    author: targetAuthor("twitch", d),
+    fragments: thirdPartyEmotes.apply(typeof text === "string" ? [{ type: "text", text }] : []),
+    kind: "automod",
+    automod: { heldId: id, status: "held", reason: holdReason(d) },
+  });
+}
+
+function autoModUpdate(d: Raw): void {
+  const id = heldId(d);
+  if (!id) return;
+  const raw = String(pick(d, "status", "state") ?? "").toLowerCase();
+  const status = raw.startsWith("approv") || raw === "allowed" ? "approved" : raw.startsWith("den") ? "denied" : raw.startsWith("expir") ? "expired" : null;
+  if (!status) return;
+  setHeldStatus(id, status, moderatorName(d));
+}
+
+/** Mark a held AutoMod message as allowed / denied / expired. */
+export function setHeldStatus(id: string, status: "approved" | "denied" | "expired", by?: string): void {
+  chat.updateWhere(
+    (m) => m.automod?.heldId === id,
+    (m) => (m.automod!.status === status ? m : { ...m, automod: { ...m.automod!, status, by: by ?? m.automod!.by } }),
+  );
+}
+
 function seconds(d: Raw): number {
   return Number(pick(d, "duration", "durationSeconds", "seconds", "banDurationSeconds") ?? 0);
 }
@@ -148,6 +205,14 @@ export const modEventHandlers: Record<string, (d: Raw) => void> = {
     chat.markDeleted((m) => m.platform === "twitch" && (m.kind === "chat" || m.kind === "action"), "chat cleared");
     log("twitch", CHAT_AUTHOR, d, "cleared", "clear");
   },
+  "Twitch.ModeratorAdded": (d) => roleChange(d, "made a moderator", "mod"),
+  "Twitch.ModeratorRemoved": (d) => roleChange(d, "no longer a moderator", "unmod"),
+  "Twitch.VipAdded": (d) => roleChange(d, "made a VIP", "vip"),
+  "Twitch.VipRemoved": (d) => roleChange(d, "no longer a VIP", "unvip"),
+  "Twitch.WarnedUser": (d) => roleChange(d, "warned", "warn"),
+  "Twitch.WarningAcknowledged": (d) => roleChange(d, "acknowledged their warning", "warn"),
+  "Twitch.AutoModMessageHeld": autoModHeld,
+  "Twitch.AutoModMessageUpdate": autoModUpdate,
   "YouTube.MessageDeleted": (d) => messageDeleted("youtube", d),
   "YouTube.UserTimedout": (d) => timedOut("youtube", d, seconds(d) || recentTimeout("youtube", targetUserId(d) ?? "") || 0),
   // YouTube timeouts are "temporary bans" and can arrive as a ban event. Treat it as a timeout

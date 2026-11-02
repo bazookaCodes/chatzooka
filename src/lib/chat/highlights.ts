@@ -3,6 +3,7 @@
 // "first message ever" sits above "first message this session" so it's never masked by it.
 import { prefs, type FlaggedUser, type HighlightCategory } from "../prefs.svelte";
 import { streamerbot } from "../streamerbot/connection.svelte";
+import { plainText } from "./plainText";
 import type { ChatMessage } from "./types";
 
 export interface Highlight {
@@ -30,12 +31,6 @@ const LABELS: Partial<Record<HighlightCategory, string>> = {
   mention: "Mentions you",
   highlightedMessage: "Highlighted",
 };
-
-function plainText(m: ChatMessage): string {
-  return m.fragments
-    .map((f) => (f.type === "text" || f.type === "mention" ? f.text : f.type === "emote" ? f.name : f.url))
-    .join("");
-}
 
 function flagged(list: FlaggedUser[], m: ChatMessage): boolean {
   const login = (m.author.login ?? m.author.displayName).toLowerCase();

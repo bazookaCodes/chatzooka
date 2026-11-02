@@ -1,12 +1,14 @@
 <script lang="ts">
-  // Quick moderation icons shown when hovering a chat row.
-  import { Ban, Clock, Trash2 } from "@lucide/svelte";
-  import { banUser, capabilities, deleteMessage, timeoutUser } from "../chat/moderation";
+  // Quick icons shown when hovering a chat row: Reply (Twitch), then moderation.
+  import { Ban, Clock, CornerUpLeft, Trash2 } from "@lucide/svelte";
+  import { banUser, canModerate, capabilities, deleteMessage, timeoutUser } from "../chat/moderation";
+  import { reply } from "../chat/reply.svelte";
   import type { ChatMessage } from "../chat/types";
 
   let { message }: { message: ChatMessage } = $props();
 
   const can = $derived(capabilities(message));
+  const moderatable = $derived(canModerate(message));
   /** Ban needs a second click within a few seconds. */
   let confirmBan = $state(false);
   let confirmTimer: ReturnType<typeof setTimeout> | null = null;
@@ -24,23 +26,30 @@
 </script>
 
 <div class="mod-actions">
-  {#if can.delete}
-    <button title="Delete message" aria-label="Delete message" onclick={() => void deleteMessage(message)}>
-      <Trash2 size={14} />
+  {#if reply.canReply(message)}
+    <button title="Reply" aria-label="Reply" onclick={() => reply.start(message)}>
+      <CornerUpLeft size={14} />
     </button>
   {/if}
-  <button title="Timeout 10 minutes" aria-label="Timeout 10 minutes" onclick={() => void timeoutUser(message, 600)}>
-    <Clock size={14} />
-  </button>
-  <button
-    class="ban"
-    class:confirm={confirmBan}
-    title={confirmBan ? "Click again to ban" : "Ban"}
-    aria-label={confirmBan ? "Click again to ban" : "Ban"}
-    onclick={onBan}
-  >
-    <Ban size={14} />{#if confirmBan}<span>Ban?</span>{/if}
-  </button>
+  {#if moderatable}
+    {#if can.delete}
+      <button title="Delete message" aria-label="Delete message" onclick={() => void deleteMessage(message)}>
+        <Trash2 size={14} />
+      </button>
+    {/if}
+    <button title="Timeout 10 minutes" aria-label="Timeout 10 minutes" onclick={() => void timeoutUser(message, 600)}>
+      <Clock size={14} />
+    </button>
+    <button
+      class="ban"
+      class:confirm={confirmBan}
+      title={confirmBan ? "Click again to ban" : "Ban"}
+      aria-label={confirmBan ? "Click again to ban" : "Ban"}
+      onclick={onBan}
+    >
+      <Ban size={14} />{#if confirmBan}<span>Ban?</span>{/if}
+    </button>
+  {/if}
 </div>
 
 <style>

@@ -54,6 +54,8 @@ export type MessageKind =
   | "system"
   /** Moderation log entry (timeout, ban, unban, deleted message); shown only on the Mod actions tab. */
   | "modaction"
+  /** Twitch AutoMod held a message for review; shown in chat and on the Mod actions tab. */
+  | "automod"
   /** Private "joined/left chat" notice; shown only to you, never saved. */
   | "presence";
 
@@ -75,6 +77,24 @@ export interface Redemption {
   status: "unfulfilled" | "fulfilled" | "canceled";
 }
 
+export interface AutoModHold {
+  /** Twitch's id for the held message (what Allow / Deny act on). */
+  heldId: string;
+  status: "held" | "approved" | "denied" | "expired";
+  /** Why AutoMod held it, e.g. "swearing (level 2)" or "blocked term". */
+  reason?: string;
+  /** Who allowed or denied it. */
+  by?: string;
+}
+
+/** The message a Twitch reply answers. */
+export interface ReplyParent {
+  id: string;
+  name: string;
+  login?: string;
+  text: string;
+}
+
 export interface ChatMessage {
   id: string;
   /** Arrival order, assigned by the message store. */
@@ -87,6 +107,9 @@ export interface ChatMessage {
   fragments: Fragment[];
   kind: MessageKind;
   redemption?: Redemption;
+  automod?: AutoModHold;
+  /** Twitch reply: the message this one answers. */
+  replyTo?: ReplyParent;
   event?: EventInfo;
   /** The sender's first message ever in your chat. */
   firstEver?: boolean;
@@ -105,7 +128,7 @@ export interface ChatMessage {
 
 /** Messages that belong on the Events tab. First-ever messages go there too so they aren't missed. */
 export function isEvent(message: ChatMessage): boolean {
-  if (message.kind === "modaction" || message.kind === "presence") return false;
+  if (message.kind === "modaction" || message.kind === "presence" || message.kind === "automod") return false;
   return (message.kind !== "chat" && message.kind !== "action") || !!message.firstEver;
 }
 
@@ -124,6 +147,6 @@ export function filterForTab(messages: ChatMessage[], tab: TabId): ChatMessage[]
     case "events":
       return messages.filter(isEvent);
     case "mod":
-      return messages.filter((m) => m.kind === "modaction");
+      return messages.filter((m) => m.kind === "modaction" || m.kind === "automod");
   }
 }

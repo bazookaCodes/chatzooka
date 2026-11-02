@@ -53,14 +53,11 @@ class Updater {
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      // No published release (or one built without update files) has no latest.json yet.
-      if (/valid release JSON|404/i.test(message)) {
-        this.lastChecked = Date.now();
-        this.status = "upToDate";
-        return;
-      }
       this.status = "error";
-      this.error = message;
+      // GitHub answers 404 when the repo is private or no published release has latest.json.
+      this.error = /valid release JSON|404/i.test(message)
+        ? "Couldn't find the update file on GitHub. The repository must be public and have a published release."
+        : message;
       console.warn("Update check failed", e);
     }
   }

@@ -18,7 +18,20 @@
   --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Ubuntu, sans-serif;
   --font-size: 14px;
 
+  /* Sizes that compact mode shrinks. */
+  --row-pad-y: 7px;
+  --tabbar-h: 40px;
+  --tab-w: 44px;
+  --composer-pad: 8px 10px 10px;
+
   color-scheme: dark;
+}
+
+:root.compact {
+  --row-pad-y: 2px;
+  --tabbar-h: 32px;
+  --tab-w: 36px;
+  --composer-pad: 4px 8px 6px;
 }
 
 *,

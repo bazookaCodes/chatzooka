@@ -2,6 +2,9 @@
   // Right-click menu for a chat row: moderation plus copy helpers.
   import { contextMenu } from "../chat/contextMenu.svelte";
   import { banUser, canModerate, capabilities, deleteMessage, TIMEOUT_PRESETS, timeoutUser, unbanUser } from "../chat/moderation";
+  import { isIgnoredUser, toggleIgnoredUser } from "../chat/ignore";
+  import { plainText } from "../chat/plainText";
+  import { reply } from "../chat/reply.svelte";
   import type { ChatMessage } from "../chat/types";
   import { toasts } from "../toasts.svelte";
 
@@ -35,10 +38,14 @@
     if (m) void fn(m);
   }
 
-  function text(): string {
-    return (message?.fragments ?? [])
-      .map((f) => (f.type === "text" || f.type === "mention" ? f.text : f.type === "emote" ? f.name : f.url))
-      .join("");
+  const ignorable = $derived(!!message && (message.kind === "chat" || message.kind === "action") && !message.author.roles.broadcaster);
+
+  function toggleIgnore() {
+    const m = message;
+    contextMenu.close();
+    if (!m) return;
+    const now = toggleIgnoredUser(m);
+    toasts.show(now ? `Ignoring ${m.author.displayName} (undo in Settings → Ignore)` : `Stopped ignoring ${m.author.displayName}`);
   }
 
   async function copy(value: string, what: string) {
@@ -63,6 +70,11 @@
   <div class="menu" bind:this={menu} role="menu" style:left="{pos.left}px" style:top="{pos.top}px">
     <div class="header">{message.author.displayName}</div>
 
+    {#if reply.canReply(message)}
+      <button role="menuitem" onclick={() => { const m = message; contextMenu.close(); reply.start(m); }}>Reply</button>
+      <hr />
+    {/if}
+
     {#if moderatable && can}
       {#if can.delete}
         <button role="menuitem" onclick={() => act(deleteMessage)}>Delete message</button>
@@ -86,8 +98,12 @@
       <hr />
     {/if}
 
-    <button role="menuitem" onclick={() => copy(text(), "message")}>Copy message</button>
+    <button role="menuitem" onclick={() => copy(plainText(message), "message")}>Copy message</button>
     <button role="menuitem" onclick={() => copy(message.author.displayName, "name")}>Copy name</button>
+    {#if ignorable}
+      <hr />
+      <button role="menuitem" onclick={toggleIgnore}>{isIgnoredUser(message) ? "Stop ignoring" : "Ignore"} {message.author.displayName}</button>
+    {/if}
   </div>
 {/if}
 

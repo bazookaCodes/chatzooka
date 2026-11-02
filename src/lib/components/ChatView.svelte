@@ -1,11 +1,23 @@
 <script lang="ts">
-  import { ArrowDown, Pause } from "@lucide/svelte";
+  import { ArrowDown, CornerDownRight, Pause } from "@lucide/svelte";
   import { tick } from "svelte";
   import type { ChatMessage, TabId } from "../chat/types";
   import MessageRow from "./MessageRow.svelte";
   import { prefs } from "../prefs.svelte";
+  import { search } from "../chat/search.svelte";
 
-  let { messages, tab }: { messages: ChatMessage[]; tab: TabId } = $props();
+  let {
+    messages,
+    tab,
+    context,
+  }: {
+    messages: ChatMessage[];
+    tab: TabId;
+    /** While searching: the full, unfiltered list, for "Show in chat". */
+    context?: ChatMessage[];
+  } = $props();
+
+  const inContext = $derived(context ? new Set(context.map((m) => m.id)) : null);
 
   const emptyText: Record<TabId, string> = {
     all: "No messages yet. Chat from Twitch and YouTube will show up here.",
@@ -38,11 +50,31 @@
     void tick().then(() => scroller?.scrollTo({ top: scroller.scrollHeight }));
   }
 
-  // Switching tabs always starts live at the newest message.
+  // Switching tabs, or changing the search, starts live at the newest message.
+  let jumping = false;
   $effect(() => {
     void tab;
-    frozen = null;
+    void search.query;
+    void search.historyFor;
+    if (jumping) jumping = false;
+    else frozen = null;
   });
+
+  /** Close the search and scroll to a message in the full chat, paused there. */
+  async function showInChat(id: string) {
+    if (!context) return;
+    frozen = context;
+    jumping = true;
+    search.close();
+    await tick();
+    const row = scroller?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "center" });
+    row.animate([{ boxShadow: "inset 3px 0 0 var(--text)", background: "#3a3a3a" }, { boxShadow: "inset 3px 0 0 transparent" }], {
+      duration: 1800,
+      easing: "ease-out",
+    });
+  }
 
   // Stay pinned to the bottom as messages arrive, unless paused.
   $effect(() => {
@@ -50,18 +82,44 @@
     if (frozen) return;
     void tick().then(() => scroller?.scrollTo({ top: scroller.scrollHeight }));
   });
+
+  // Also stay pinned while the window resizes (rows rewrap and change height) and when emotes or
+  // images finish loading. ResizeObserver runs after layout and before paint, so it never shows
+  // a frame that's off the bottom.
+  let rows: HTMLDivElement | undefined = $state();
+  $effect(() => {
+    if (!scroller) return;
+    const el = scroller;
+    const observer = new ResizeObserver(() => {
+      if (!frozen) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    if (rows) observer.observe(rows);
+    return () => observer.disconnect();
+  });
 </script>
 
 <div class="wrap">
   <div class="chat" bind:this={scroller} onscroll={onScroll} role="log" aria-live="polite">
     {#if shown.length === 0}
-      <p class="empty">{emptyText[tab]}</p>
+      <p class="empty">{context ? "No messages match your search." : emptyText[tab]}</p>
     {:else}
-      <div class="rows">
+      <div class="rows" bind:this={rows}>
         <!-- Shade by arrival order, not list position: when old messages drop off the top,
              position-based shading would flip every row and redraw the whole list. -->
         {#each shown as message, i (message.id)}
-          <MessageRow {message} alt={Math.abs(message.seq ?? 0) % 2 === 1} showPlatform={prefs.value.platformIcons !== "all-tab" || tab === "all"} />
+          {#if inContext}
+            <div class="result">
+              <MessageRow {message} alt={Math.abs(message.seq ?? 0) % 2 === 1} showPlatform={prefs.value.platformIcons !== "all-tab" || tab === "all"} />
+              {#if inContext.has(message.id)}
+                <button class="jump" title="Show in chat" aria-label="Show in chat" onclick={() => void showInChat(message.id)}><CornerDownRight size={13} /></button>
+              {:else}
+                <span class="older" title="From saved history (older than the chat on screen)">saved</span>
+              {/if}
+            </div>
+          {:else}
+            <MessageRow {message} alt={Math.abs(message.seq ?? 0) % 2 === 1} showPlatform={prefs.value.platformIcons !== "all-tab" || tab === "all"} />
+          {/if}
           <!-- Line between chat restored from history and messages from this session. -->
           {#if message.restored && !shown[i + 1]?.restored}
             <div class="since-open" role="separator"><span>Chatzooka opened · new messages below</span></div>
@@ -100,6 +158,40 @@
     flex-direction: column;
     justify-content: flex-end;
     min-height: 100%;
+  }
+
+  .result {
+    position: relative;
+  }
+
+  /* Sits in the row's empty left margin. */
+  .jump,
+  .older {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    translate: 0 -50%;
+    color: var(--text-faint);
+  }
+
+  .jump {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+  }
+
+  .jump:hover {
+    background: #333;
+    color: var(--text);
+  }
+
+  .older {
+    left: 2px;
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .since-open {

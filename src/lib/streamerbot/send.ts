@@ -1,5 +1,6 @@
 // Sends chat messages through Streamer.bot as your broadcaster account.
-import type { Platform } from "../chat/types";
+import type { ChatMessage, Platform } from "../chat/types";
+import { bridge } from "./bridge.svelte";
 import { streamerbot } from "./connection.svelte";
 
 export type SendResult = { platform: Platform; ok: true } | { platform: Platform; ok: false; error: string; needsAuth?: boolean };
@@ -18,6 +19,19 @@ export async function sendChat(platform: Platform, text: string): Promise<SendRe
   } catch (e) {
     return { platform, ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * Reply to a Twitch message (bridge v5). With an older bridge it falls back to a normal message
+ * starting with "@name", which is what a reply looks like in most chat clients anyway.
+ */
+export async function sendTwitchReply(text: string, parent: ChatMessage): Promise<SendResult & { fallback?: boolean }> {
+  if (!bridge.supports(5)) {
+    const name = parent.author.login ?? parent.author.displayName;
+    return { ...(await sendChat("twitch", `@${name} ${text}`)), fallback: true };
+  }
+  const res = await bridge.call("twitch.reply", { message: text, replyId: parent.id });
+  return res.ok ? { platform: "twitch", ok: true } : { platform: "twitch", ok: false, error: res.error };
 }
 
 /** Twitch allows 500 characters per message, YouTube 200. */

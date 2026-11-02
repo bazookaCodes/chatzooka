@@ -3,6 +3,7 @@
 // run slash commands that arrive as ordinary messages. Mostly Twitch-only; /timeout and /ban also
 // work on YouTube for people who've chatted there.
 import { bridge, type BridgeResult } from "../streamerbot/bridge.svelte";
+import { liveEvents } from "../stream/liveEvents.svelte";
 import { toasts } from "../toasts.svelte";
 import { banUser, durationLabel, modUser, timeoutUser, unbanUser, unmodUser } from "./moderation";
 import { chat } from "./store.svelte";
@@ -219,7 +220,46 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: "emoteonly", args: "", description: "Emote-only chat", platforms: ["twitch"], bridge: 4, run: async () => op("Emote-only on", "turn on emote-only", "twitch.emoteonly", { enabled: "true" }) },
   { name: "emoteonlyoff", args: "", description: "Turn emote-only off", platforms: ["twitch"], bridge: 4, run: async () => op("Emote-only off", "turn off emote-only", "twitch.emoteonly", { enabled: "false" }) },
   { name: "clear", args: "", description: "Clear all chat messages", platforms: ["twitch"], bridge: 4, run: async () => op("Chat cleared", "clear chat", "twitch.clear") },
+  {
+    name: "poll",
+    args: "<question> | <choice> | <choice> … [| 2m]",
+    description: "Start a poll: 2–5 choices separated by |, optional length (default 1m)",
+    platforms: ["twitch"],
+    bridge: 6,
+    run: async (args) => {
+      const p = parseVote(args, 2, 5, 60, 15);
+      return p ? liveEvents.createPoll(p.title, p.options, p.seconds) : usage("poll Question? | Choice 1 | Choice 2 | 2m");
+    },
+  },
+  {
+    name: "prediction",
+    aliases: ["predict"],
+    args: "<question> | <outcome> | <outcome> … [| 2m]",
+    description: "Start a prediction: 2–10 outcomes separated by |, optional voting time (default 2m)",
+    platforms: ["twitch"],
+    bridge: 6,
+    run: async (args) => {
+      const p = parseVote(args, 2, 10, 120, 30);
+      return p ? liveEvents.createPrediction(p.title, p.options, p.seconds) : usage("prediction Who wins? | Me | Chat | 5m");
+    },
+  },
 ];
+
+/** "Question? | A | B | 2m" → title, options and seconds (a last part that's a duration). */
+function parseVote(args: string[], min: number, max: number, fallback: number, minSeconds: number): { title: string; options: string[]; seconds: number } | null {
+  const parts = args.join(" ").split("|").map((s) => s.trim()).filter(Boolean);
+  let secs = fallback;
+  if (parts.length > 1) {
+    const last = seconds(parts.at(-1), NaN);
+    if (!Number.isNaN(last)) {
+      secs = last;
+      parts.pop();
+    }
+  }
+  const [title, ...options] = parts;
+  if (!title || options.length < min || options.length > max) return null;
+  return { title, options, seconds: Math.min(1800, Math.max(minSeconds, secs)) };
+}
 
 function usage(text: string): false {
   toasts.show(`Usage: /${text}`, "error");

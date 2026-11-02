@@ -8,16 +8,18 @@ import { viewers } from "../chat/viewers.svelte";
 import { chat } from "../chat/store.svelte";
 import type { ChatMessage } from "../chat/types";
 import { cosmetics } from "../seventv/cosmetics.svelte";
-import { loadSetting, saveSetting } from "../settings";
+import { recordRaw, type RawEvent } from "../dev/rawEvents";
+import { streamInfo } from "../stream/streamInfo.svelte";
+import { liveEvents } from "../stream/liveEvents.svelte";
 import { streamerbot } from "./connection.svelte";
 import { twitchEventMappers, youtubeEventMappers } from "./eventRows";
 import { logChatSetting, modEventHandlers } from "./modEvents";
 import { onPresentViewers, resetPresence, startPresencePolling } from "./presence.svelte";
 import { startTwitchReadOnly } from "../twitch/setup.svelte";
+import { twitchReplyParent, withReply } from "../twitch/replies";
 import { twitchChatMessage, youtubeChatMessage } from "./normalize";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type RawEvent = { timeStamp?: string; data?: any };
 
 let started = false;
 
@@ -33,6 +35,10 @@ let draining = false;
 
 function receive(message: ChatMessage | null): void {
   if (!message) return;
+  if (message.platform === "twitch" && !message.replyTo) {
+    const parent = twitchReplyParent(message.id);
+    if (parent) message = withReply(message, parent);
+  }
   message.fragments = thirdPartyEmotes.apply(message.fragments);
   markFirstEver(message);
   redemptions.track(message);
@@ -66,21 +72,12 @@ async function prefetchCosmetics(client: Parameters<Parameters<typeof streamerbo
   }
 }
 
-/**
- * Dev builds keep the last few raw payloads of each event type (in localStorage under
- * `chatzooka.dev.rawEvents`) so undocumented Streamer.bot formats can be checked later.
- */
-function recordRaw(name: string, e: RawEvent): void {
-  if (!import.meta.env.DEV) return;
-  const all = loadSetting<Record<string, RawEvent[]>>("dev.rawEvents", {});
-  all[name] = [e, ...(all[name] ?? [])].slice(0, 5);
-  saveSetting("dev.rawEvents", all);
-}
-
 export function startChatEvents(): void {
   if (started) return;
   started = true;
   cosmetics.preload();
+  streamInfo.start();
+  liveEvents.start();
   thirdPartyEmotes.start();
   viewers.start();
   streamerbot.onConnected((client) => void prefetchCosmetics(client));
@@ -93,6 +90,8 @@ export function startChatEvents(): void {
       const e = event as RawEvent;
       // Kept so the first-message flag can be checked against a known first-time chatter.
       if (e.data?.meta?.firstMessage) recordRaw("Twitch.ChatMessage(firstMessage)", e);
+      // Kept so the reply fields (not documented) can be checked against a real reply.
+      if (/"reply|parent_message/i.test(JSON.stringify(e.data ?? {}))) recordRaw("Twitch.ChatMessage(reply)", e);
       receive(twitchChatMessage(e.data, e.timeStamp));
     });
     void client.on("YouTube.Message", (event) => {

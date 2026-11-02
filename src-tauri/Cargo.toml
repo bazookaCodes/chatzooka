@@ -27,6 +27,8 @@ tauri-plugin-opener = "2"
 # Auto-update from GitHub Releases (signed), and restarting after an update.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Reopen the window where and how big it was when it was closed.
+tauri-plugin-window-state = "2"
 # Link previews: fetch pages from Rust (webviews can't read other sites) and parse their meta tags.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "brotli"] }
 scraper = "0.20"

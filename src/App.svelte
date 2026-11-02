@@ -1,6 +1,7 @@
 <script lang="ts">
   import { chat } from "./lib/chat/store.svelte";
   import { filterForTab, type TabId } from "./lib/chat/types";
+  import { isIgnored } from "./lib/chat/ignore";
   import ChatView from "./lib/components/ChatView.svelte";
   import Composer from "./lib/components/Composer.svelte";
   import ConnectionBanner from "./lib/components/ConnectionBanner.svelte";
@@ -8,6 +9,10 @@
   import EventsPanel from "./lib/components/EventsPanel.svelte";
   import LinkPreviewCard from "./lib/components/LinkPreviewCard.svelte";
   import ModeBar from "./lib/components/ModeBar.svelte";
+  import SearchBar from "./lib/components/SearchBar.svelte";
+  import StreamInfoBar from "./lib/components/StreamInfoBar.svelte";
+  import LiveBanner from "./lib/components/LiveBanner.svelte";
+  import { search } from "./lib/chat/search.svelte";
   import Toasts from "./lib/components/Toasts.svelte";
   import UpdateBanner from "./lib/components/UpdateBanner.svelte";
   import UserCard from "./lib/components/UserCard.svelte";
@@ -51,7 +56,7 @@
   $effect(() => saveSetting("activeTab", activeTab));
 
   let settingsOpen = $state(false);
-  let settingsSection = $state<"general" | "highlights" | "connection" | "history" | "quickActions">("general");
+  let settingsSection = $state<"general" | "highlights" | "ignore" | "connection" | "history" | "quickActions">("general");
   const openSettings = (section: typeof settingsSection = "general") => {
     settingsSection = section;
     settingsOpen = true;
@@ -61,9 +66,26 @@
   const visible = $derived.by(() => {
     const list = filterForTab(chat.messages, activeTab);
     // "Hide removed messages" applies to the chat tabs; the Mod actions log always shows them.
-    const shown = prefs.value.joinLeaveNotices ? list : list.filter((m) => m.kind !== "presence");
-    return prefs.value.removedMessages === "hide" && activeTab !== "mod" ? shown.filter((m) => !m.deleted) : shown;
+    const p = prefs.value;
+    let shown = p.joinLeaveNotices ? list : list.filter((m) => m.kind !== "presence");
+    if (activeTab !== "mod") {
+      if (p.removedMessages === "hide") shown = shown.filter((m) => !m.deleted);
+      if (p.ignoredDisplay === "hide") shown = shown.filter((m) => !isIgnored(m));
+    }
+    return shown;
   });
+
+  // Ctrl+F search filters the chat tabs (Events has its own layout, so search switches to All).
+  let searchBar: SearchBar | undefined = $state();
+  const searched = $derived(search.active && activeTab !== "events" ? search.apply(visible, activeTab) : visible);
+  function onKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f" && !settingsOpen) {
+      e.preventDefault();
+      if (activeTab === "events") activeTab = "all";
+      search.show();
+      searchBar?.focus();
+    }
+  }
 
   // Unread = arrived since you last looked at that tab.
   const TABS: TabId[] = ["all", "twitch", "youtube", "events", "mod"];
@@ -77,20 +99,24 @@
   });
   const unread = $derived(
     Object.fromEntries(
-      TABS.map((t) => [t, filterForTab(chat.messages, t).filter((m) => (m.seq ?? 0) > lastSeenSeq[t] && m.kind !== "presence").length]),
+      TABS.map((t) => [t, filterForTab(chat.messages, t).filter((m) => (m.seq ?? 0) > lastSeenSeq[t] && m.kind !== "presence" && !isIgnored(m)).length]),
     ) as Record<TabId, number>,
   );
 </script>
 
+<svelte:window onkeydown={onKeydown} />
+
 <div class="app">
   <TabBar bind:active={activeTab} {unread} onOpenSettings={() => openSettings()} />
+  {#if prefs.value.streamInfoBar}<StreamInfoBar />{/if}
   <ConnectionBanner onOpenSettings={openConnectionSettings} />
   <UpdateBanner />
-  {#if activeTab !== "mod"}<ModeBar />{/if}
+  {#if activeTab !== "mod"}<ModeBar /><LiveBanner />{/if}
+  {#if search.open && activeTab !== "events"}<SearchBar bind:this={searchBar} count={searched.length} />{/if}
   {#if activeTab === "events"}
     <EventsPanel messages={visible} />
   {:else}
-    <ChatView messages={visible} tab={activeTab} />
+    <ChatView messages={searched} tab={activeTab} context={search.active ? visible : undefined} />
   {/if}
   <!-- The Mod actions tab is a log, not a chat, so the message box is hidden there (kept mounted
        so a half-typed message survives switching tabs). -->

@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { Menu, SendHorizontal, Smile, X } from "@lucide/svelte";
+  import { CornerUpLeft, Menu, SendHorizontal, Smile, X } from "@lucide/svelte";
+  import { plainText } from "../chat/plainText";
+  import { reply } from "../chat/reply.svelte";
+  import { toasts } from "../toasts.svelte";
   import { tick } from "svelte";
   import { emoteList, isChannelEmote } from "../chat/emoteList.svelte";
   import { runSlashCommand, SLASH_COMMANDS } from "../chat/slashCommands";
@@ -7,7 +10,7 @@
   import type { Platform } from "../chat/types";
   import { loadSetting, saveSetting } from "../settings";
   import { streamerbot } from "../streamerbot/connection.svelte";
-  import { MESSAGE_LIMITS, sendChat, type SendResult } from "../streamerbot/send";
+  import { MESSAGE_LIMITS, sendChat, sendTwitchReply, type SendResult } from "../streamerbot/send";
   import ChatMenu from "./ChatMenu.svelte";
   import EmotePicker from "./EmotePicker.svelte";
   import PlatformIcon from "./PlatformIcon.svelte";
@@ -34,17 +37,26 @@
   let notice = $state<{ text: string; needsAuth: boolean } | null>(null);
 
   const connected = $derived(streamerbot.status === "connected");
-  /** Platforms that are both selected and signed in to Streamer.bot. */
+  /** Platforms that are both selected and signed in to Streamer.bot. A reply only goes to Twitch. */
   const activeTargets = $derived(
-    (["twitch", "youtube"] as const).filter((p) => targets[p] && (!connected || streamerbot.accounts[p])),
+    reply.target
+      ? (["twitch"] as const).filter((p) => !connected || streamerbot.accounts[p])
+      : (["twitch", "youtube"] as const).filter((p) => targets[p] && (!connected || streamerbot.accounts[p])),
   );
+
+  // Reply / right-click → Reply puts the cursor in the message box.
+  $effect(() => {
+    if (reply.requested) void tick().then(() => input?.focus());
+  });
   const limit = $derived(Math.min(...activeTargets.map((p) => MESSAGE_LIMITS[p]), 500));
   const length = $derived(text.trim().length);
   const overLimit = $derived(length > limit);
   const canSend = $derived(connected && !sending && length > 0 && !overLimit && activeTargets.length > 0);
 
   const placeholder = $derived(
-    targets.twitch && targets.youtube
+    reply.target
+      ? `Reply to ${reply.target.author.displayName}…`
+      : targets.twitch && targets.youtube
       ? "Send a message to all platforms…"
       : targets.twitch
         ? "Send a message to Twitch…"
@@ -82,7 +94,18 @@
       return;
     }
 
-    const results: SendResult[] = await Promise.all(activeTargets.map((p) => sendChat(p, message)));
+    const parent = reply.target;
+    let results: SendResult[];
+    if (parent) {
+      const res = await sendTwitchReply(message, parent);
+      if (res.ok) {
+        reply.clear();
+        if (res.fallback) toasts.show("Sent as an @mention. Update the Chatzooka Bridge to v5 for real Twitch replies.", "ok", 6000);
+      }
+      results = [res];
+    } else {
+      results = await Promise.all(activeTargets.map((p) => sendChat(p, message)));
+    }
     sending = false;
 
     const failed = results.filter((r): r is Extract<SendResult, { ok: false }> => !r.ok);
@@ -186,6 +209,8 @@
       text = historyIndex >= 0 ? history[historyIndex] : "";
     } else if (event.key === "Escape" && pickerOpen) {
       pickerOpen = false;
+    } else if (event.key === "Escape" && reply.target) {
+      reply.clear();
     }
   }
 
@@ -215,6 +240,17 @@
         <button class="notice-btn" onclick={onOpenSettings}>Settings</button>
       {/if}
       <button class="icon-btn" aria-label="Dismiss" onclick={() => (notice = null)}><X size={14} /></button>
+    </div>
+  {/if}
+
+  {#if reply.target}
+    <div class="replying">
+      <CornerUpLeft size={13} />
+      <span class="replying-text">
+        Replying to <strong>{reply.target.author.displayName}</strong>: {plainText(reply.target)}
+      </span>
+      <span class="replying-note" title="Replies are a Twitch feature, so this goes to Twitch only">Twitch only</span>
+      <button class="icon-btn" aria-label="Cancel reply (Esc)" title="Cancel reply (Esc)" onclick={() => reply.clear()}><X size={14} /></button>
     </div>
   {/if}
 
@@ -300,9 +336,10 @@
   .composer {
     position: relative;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px 10px;
+    gap: 6px 10px;
+    padding: var(--composer-pad);
     flex-shrink: 0;
   }
 
@@ -327,6 +364,39 @@
 
   .notice span {
     flex: 1;
+  }
+
+  /* Its own row above the message box (the composer wraps), so it never covers chat. */
+  .replying {
+    flex: 0 0 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+  }
+
+  .replying-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .replying-text strong {
+    color: var(--text);
+  }
+
+  .replying-note {
+    font-size: 11px;
+    color: var(--twitch);
+    white-space: nowrap;
   }
 
   .notice-btn {

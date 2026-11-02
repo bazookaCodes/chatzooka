@@ -50,6 +50,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(link_safety::SafetyState::default())
         .setup(|app| {
             // Load the phishing lists and refresh them in the background (every 12 hours).

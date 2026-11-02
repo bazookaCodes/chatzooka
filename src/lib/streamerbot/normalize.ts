@@ -104,6 +104,47 @@ function badgeTitle(b: Raw): string {
   return pretty;
 }
 
+function pick(obj: Raw, ...paths: string[]): any {
+  for (const path of paths) {
+    let v = obj;
+    for (const key of path.split(".")) v = v?.[key];
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return undefined;
+}
+
+/**
+ * The parent of a Twitch reply. Not yet seen in a real Streamer.bot payload, so it's read from
+ * Streamer.bot's own names (reply.msgId, …) and Twitch's EventSub names (parent_message_id, …).
+ */
+function twitchReplyParent(d: Raw): ChatMessage["replyTo"] {
+  const r = d.reply ?? d.message?.reply ?? d.meta?.reply;
+  if (!r || typeof r !== "object") return undefined;
+  const id = pick(r, "msgId", "messageId", "parentMsgId", "parentMessageId", "parent_message_id", "id");
+  if (!id) return undefined;
+  const login = pick(r, "userLogin", "parentUserLogin", "parent_user_login", "login");
+  return {
+    id: String(id),
+    name: String(pick(r, "userName", "parentUserName", "parent_user_name", "displayName", "name") ?? login ?? "someone"),
+    login: login ? String(login).toLowerCase() : undefined,
+    text: String(pick(r, "msgBody", "messageBody", "parentMsgBody", "parentMessageBody", "parent_message_body", "text", "body") ?? ""),
+  };
+}
+
+/** Twitch starts reply text with "@parent "; the reply line already shows who it answers. */
+export function withoutLeadingMention(fragments: Fragment[], parent: NonNullable<ChatMessage["replyTo"]>): Fragment[] {
+  const names = [parent.login, parent.name.toLowerCase()].filter(Boolean).map((n) => `@${n}`);
+  const [first, second, ...rest] = fragments;
+  if (first?.type === "mention" && names.includes(first.text.toLowerCase())) {
+    if (second?.type === "text") {
+      const trimmed = second.text.replace(/^\s+/, "");
+      return trimmed ? [{ type: "text", text: trimmed }, ...rest] : rest;
+    }
+    return second ? [second, ...rest] : [];
+  }
+  return fragments;
+}
+
 // Streamer.bot Twitch roles: 1 viewer, 2 VIP, 3 moderator, 4 broadcaster.
 export function twitchChatMessage(payload: Raw, eventTime?: string): ChatMessage | null {
   const d = payload ?? {};
@@ -128,12 +169,15 @@ export function twitchChatMessage(payload: Raw, eventTime?: string): ChatMessage
       member: false,
     },
   };
+  const replyTo = twitchReplyParent(d);
+  const fragments = partsToFragments(d.parts, d.text ?? "");
   return {
     id: String(id),
     platform: "twitch",
     timestamp: parseTime(meta.createdAt, d.createdAt, eventTime),
     author,
-    fragments: partsToFragments(d.parts, d.text ?? ""),
+    fragments: replyTo ? withoutLeadingMention(fragments, replyTo) : fragments,
+    replyTo,
     kind: meta.isMe ? "action" : "chat",
     // Streamer.bot's `meta.firstMessage`; see firstSeen.ts for how it's combined.
     firstEver: meta.firstMessage === true,

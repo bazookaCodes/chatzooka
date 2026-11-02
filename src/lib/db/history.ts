@@ -42,7 +42,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
  * like the rest of chat). Not kept: mod-log rows, which are rebuilt from events.
  */
 function storable(m: ChatMessage): boolean {
-  if (m.kind === "modaction") return false;
+  // Held AutoMod messages aren't kept: restored later, their Allow / Deny would be stale.
+  if (m.kind === "modaction" || m.kind === "automod") return false;
   return m.kind === "presence" || !!m.author.id;
 }
 
@@ -119,6 +120,21 @@ export async function recentMessages(limit = 500): Promise<ChatMessage[]> {
   const rows = await conn.select<{ data: string; deleted: number; mod_note: string | null }[]>(
     `SELECT data, deleted, mod_note FROM messages ORDER BY ts DESC LIMIT $1`,
     [limit],
+  );
+  return rows.reverse().map((r) => ({ ...JSON.parse(r.data), deleted: !!r.deleted, modNote: r.mod_note ?? undefined }));
+}
+
+/**
+ * Saved messages whose stored data contains `text` (any case), oldest first. The match is loose
+ * (it also looks at names and other stored fields); the caller filters precisely.
+ */
+export async function searchHistory(text: string, limit = 500): Promise<ChatMessage[]> {
+  const conn = await db();
+  if (!conn) return [];
+  const like = `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const rows = await conn.select<{ data: string; deleted: number; mod_note: string | null }[]>(
+    `SELECT data, deleted, mod_note FROM messages WHERE kind != 'presence' AND data LIKE $1 ESCAPE '\\' ORDER BY ts DESC LIMIT $2`,
+    [like, limit],
   );
   return rows.reverse().map((r) => ({ ...JSON.parse(r.data), deleted: !!r.deleted, modNote: r.mod_note ?? undefined }));
 }

@@ -61,7 +61,8 @@ Streamer.bot's WebSocket can't moderate, manage rewards or look up user details 
 1. Open the **Actions** tab, right-click the list and choose **Add**. Name it exactly **`Chatzooka Bridge`** and leave it enabled.
 2. Select it. In **Sub-Actions**, right-click and choose **Core → C# → Execute C# Code**.
 3. Replace the sample code with the full contents of [`streamerbot/ChatzookaBridge.cs`](streamerbot/ChatzookaBridge.cs).
-4. Click **Compile** (the log should say it compiled), then **Save and Compile**.
+4. In the code editor's **References** tab, right-click and choose **Add reference from file…**, and add `System.dll` and `System.Core.dll` from `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\` (skip any already listed). The bridge uses them to read your stream's details from Twitch.
+5. Click **Compile** (the log should say it compiled), then **Save and Compile**.
 
 It needs no triggers; Chatzooka runs it directly. See [`streamerbot/README.md`](streamerbot/README.md) for exactly what it does and how to update it.
 
