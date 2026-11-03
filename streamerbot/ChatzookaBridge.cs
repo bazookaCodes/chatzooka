@@ -36,7 +36,20 @@ public class CPHInline
             {
                 case "ping":
                     ok = true;
-                    data = new { version = 6 };
+                    data = new { version = 7 };
+                    break;
+
+                // --- Sending chat (bridge v7), as the broadcaster account ---
+                // Streamer.bot's WebSocket SendMessage request only works on a password-protected
+                // connection; running it here works with authentication off too. Neither method
+                // reports success, so ok means "Streamer.bot accepted it".
+                case "twitch.send":
+                    CPH.SendMessage(Required("message"), false, false);
+                    ok = true;
+                    break;
+                case "youtube.send":
+                    CPH.SendYouTubeMessage(Required("message"), false, false, Arg("broadcastId"));
+                    ok = true;
                     break;
 
                 // --- Twitch user card ---

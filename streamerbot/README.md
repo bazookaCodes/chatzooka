@@ -38,6 +38,7 @@ Chatzooka checks for the action when it connects. Settings shows whether the bri
 - **v4:** slash commands: slow/followers/subscribers/emote-only modes, clear chat, announcements, VIP, shoutouts.
 - **v5:** Allow / Deny for messages held by Twitch AutoMod, Twitch replies, and the stream info bar (live status, viewers, title and category, and changing them). Twitch stream details are read from Twitch's API using the login Streamer.bot already has.
 - **v6:** start, end, lock, resolve and cancel Twitch polls and predictions.
+- **v7:** sends chat messages, so the WebSocket server no longer needs a password for Chatzooka to send.
 
 Chatzooka shows "Update available" in Settings when Streamer.bot has an older version. Each feature keeps working with the version it needs, so an older bridge only lacks the newer features.
 

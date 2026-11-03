@@ -52,7 +52,9 @@ Do this once. All steps are in Streamer.bot.
 1. Open **Servers/Clients → WebSocket Server**.
 2. Tick **Auto Start**, then click **Start Server**.
 3. Leave the address as `127.0.0.1`, port `8080` and endpoint `/` (or note what you change them to).
-4. Tick **Authentication** and set a password. This is **required for sending messages**: Streamer.bot only lets authenticated connections send chat. Reading chat works without it.
+4. **Authentication** (a password) is optional. Chatzooka works either way, as long as the Chatzooka Bridge (step 2) is installed: it sends chat through the bridge.
+   - **With a password:** only programs that know it can control Streamer.bot. Safest, but every other tool or overlay that uses the WebSocket needs the password too.
+   - **Without one:** anything on your computer can connect, including web pages open in your browser (browsers can reach `127.0.0.1`). Other computers can't, as long as the address stays `127.0.0.1`.
 
 ### 2. Add the Chatzooka Bridge action
 
@@ -66,7 +68,7 @@ Streamer.bot's WebSocket can't moderate, manage rewards or look up user details 
 
 It needs no triggers; Chatzooka runs it directly. See [`streamerbot/README.md`](streamerbot/README.md) for exactly what it does and how to update it.
 
-Without the bridge, chat, emotes and sending still work. Moderation, the channel points queue, user card details and most slash commands need it.
+Without the bridge, chat and emotes still work, and sending works only if the WebSocket server has a password. Moderation, the channel points queue, user card details, the stream info bar, polls and predictions, and most slash commands need it.
 
 ### 3. Channel point rewards (optional)
 
@@ -76,7 +78,7 @@ Twitch only lets the app that **created** a reward fulfill or refund its redempt
 
 Open Chatzooka, click the **⚙ Settings** button, then **Streamer.bot**:
 
-- Enter the host, port and endpoint from step 1, and the password.
+- Enter the host, port and endpoint from step 1, and the password if you set one.
 - Click **Test connection**, then **Save**.
 
 The **SB** pill in the top bar turns green when connected. The Streamer.bot page also shows which Twitch and YouTube accounts were found and whether the Chatzooka Bridge is ready or needs updating.

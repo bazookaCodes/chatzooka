@@ -5,11 +5,19 @@ import { streamerbot } from "./connection.svelte";
 
 export type SendResult = { platform: Platform; ok: true } | { platform: Platform; ok: false; error: string; needsAuth?: boolean };
 
-/** Streamer.bot only accepts SendMessage on a password-authenticated WebSocket. */
+/**
+ * Sends through the Chatzooka Bridge (v7+), which works whether or not the WebSocket server has a
+ * password. Without the bridge it falls back to Streamer.bot's SendMessage request, which
+ * Streamer.bot only accepts on a password-authenticated connection.
+ */
 export async function sendChat(platform: Platform, text: string): Promise<SendResult> {
   const client = streamerbot.client;
   if (!client || streamerbot.status !== "connected") {
     return { platform, ok: false, error: "Not connected to Streamer.bot" };
+  }
+  if (bridge.supports(7)) {
+    const res = await bridge.call(`${platform}.send`, { message: text });
+    return res.ok ? { platform, ok: true } : { platform, ok: false, error: res.error };
   }
   try {
     const res = await client.sendMessage(platform, text, { bot: false });

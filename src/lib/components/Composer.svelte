@@ -121,7 +121,7 @@
       notice = {
         needsAuth,
         text: needsAuth
-          ? "Streamer.bot only allows sending with a WebSocket password. Set one up in Streamer.bot and in Settings."
+          ? "Streamer.bot only allows this kind of sending with a WebSocket password. Install the Chatzooka Bridge (v7 or newer) to send without one, or set a password in Streamer.bot and in Settings."
           : failed.map((f) => `${PLATFORM_NAMES[f.platform]}: ${f.error}`).join(" · "),
       };
     }

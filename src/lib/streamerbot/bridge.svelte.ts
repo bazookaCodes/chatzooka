@@ -5,7 +5,7 @@ import { streamerbot } from "./connection.svelte";
 
 export const BRIDGE_ACTION = "Chatzooka Bridge";
 /** Must match the version the ping op returns in streamerbot/ChatzookaBridge.cs. */
-export const BRIDGE_VERSION = 6;
+export const BRIDGE_VERSION = 7;
 const TIMEOUT_MS = 8000;
 
 export type BridgeStatus = "unknown" | "missing" | "ready" | "error";
@@ -23,7 +23,7 @@ class Bridge {
     return this.status === "ready" && (this.version ?? 1) < BRIDGE_VERSION;
   }
 
-  /** Whether the installed bridge has a feature added in `minVersion` (v2: user info, mod/unmod; v3: rewards list; v4: slash commands; v5: AutoMod allow/deny, replies, stream info; v6: polls and predictions). */
+  /** Whether the installed bridge has a feature added in `minVersion` (v2: user info, mod/unmod; v3: rewards list; v4: slash commands; v5: AutoMod allow/deny, replies, stream info; v6: polls and predictions; v7: sending chat). */
   supports(minVersion: number): boolean {
     return this.status === "ready" && (this.version ?? 1) >= minVersion;
   }
