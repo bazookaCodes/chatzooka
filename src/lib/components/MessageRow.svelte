@@ -269,7 +269,7 @@
 <style>
   .row {
     position: relative;
-    padding: var(--row-pad-y) 14px var(--row-pad-y) 28px;
+    padding: var(--row-pad-y) var(--row-pad-right) var(--row-pad-y) var(--row-pad-left);
     line-height: 1.45;
     overflow-wrap: anywhere;
     user-select: text;

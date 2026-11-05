@@ -38,11 +38,16 @@
   const pausedAtSeq = $derived(frozen?.at(-1)?.seq ?? 0);
   const newCount = $derived(frozen ? messages.filter((m) => (m.seq ?? 0) > pausedAtSeq).length : 0);
 
+  let lastTop = 0;
   function onScroll() {
     if (!scroller) return;
-    const atBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 40;
+    const top = scroller.scrollTop;
+    const atBottom = scroller.scrollHeight - top - scroller.clientHeight < 40;
     if (atBottom && frozen) frozen = null;
-    else if (!atBottom && !frozen) frozen = messages;
+    // Only moving up pauses. A window shrinking fast can leave this handler seeing "not at the
+    // bottom" before the ResizeObserver below re-pins, and that mustn't count as scrolling away.
+    else if (!atBottom && !frozen && top < lastTop) frozen = messages;
+    lastTop = top;
   }
 
   function resume() {
@@ -160,11 +165,12 @@
     min-height: 100%;
   }
 
+  /* Search results keep a wider left margin for the "Show in chat" arrow. */
   .result {
     position: relative;
+    --row-pad-left: 28px;
   }
 
-  /* Sits in the row's empty left margin. */
   .jump,
   .older {
     position: absolute;
