@@ -108,6 +108,8 @@ export interface ChatMessage {
   kind: MessageKind;
   redemption?: Redemption;
   automod?: AutoModHold;
+  /** A chat line made from an event's viewer message: what it came with, e.g. "resubscribed · 12 months". */
+  viaEvent?: string;
   /** Twitch reply: the message this one answers. */
   replyTo?: ReplyParent;
   event?: EventInfo;

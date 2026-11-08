@@ -42,7 +42,9 @@ function twitchAuthor(d: Raw): ChatAuthor {
 }
 
 function twitchText(d: Raw): Fragment[] {
-  const text = pick(d, "text", "message.text", "message", "rawInput", "user_input", "userInput");
+  const text = pick(d, "text", "message.text", "message.message", "message", "messageStripped", "rawInput", "chatMessage", "user_input", "userInput");
+  const parts = pick(d, "message.parts", "message.fragments");
+  if (Array.isArray(parts) && parts.length && !(Array.isArray(d.parts) && d.parts.length)) return partsToFragments(parts, String(text ?? ""));
   if (Array.isArray(d.parts) && d.parts.length) return partsToFragments(d.parts, String(text ?? ""));
   return typeof text === "string" ? textToFragments(text) : [];
 }
@@ -116,6 +118,16 @@ export const twitchEventMappers: Record<string, Mapper> = {
   Announcement: (d, t) =>
     row("twitch", "announcement", twitchAuthor(d), d, t, "announcement", { fragments: twitchText(d) }),
 
+  // A viewer watched several streams in a row; they can attach a message, like a resub.
+  WatchStreak: (d, t) => {
+    const streak = Number(pick(d, "watchStreak", "streak", "count") ?? 0);
+    const points = Number(pick(d, "channelPointsAwarded", "channel_points_awarded", "points") ?? 0);
+    return row("twitch", "system", twitchAuthor(d), d, t, streak ? `is on a ${streak}-stream watch streak` : "sparked a watch streak", {
+      event: { headline: streak ? `is on a ${streak}-stream watch streak` : "sparked a watch streak", amount: points ? plural(points, "point") : undefined },
+      fragments: twitchText(d),
+    });
+  },
+
   RewardRedemption: (d, t) => {
     const reward = d.reward ?? {};
     const input = pick(d, "user_input", "userInput", "rawInput", "input");
@@ -131,6 +143,28 @@ export const twitchEventMappers: Record<string, Mapper> = {
     });
   },
 };
+
+/** Event kinds whose viewer message Twitch / YouTube don't also send as a normal chat message. */
+const MESSAGE_KINDS = new Set<MessageKind>(["sub", "announcement", "superchat", "member", "system"]);
+
+/**
+ * The viewer's own message from an event (resub, watch streak, Super Chat, …) as a normal chat
+ * line, so it shows in the chat feed and not only inside the event row. Null when there's none.
+ */
+export function chatLineFor(event: ChatMessage): ChatMessage | null {
+  if (!MESSAGE_KINDS.has(event.kind) || !event.author.id) return null;
+  if (!event.fragments.some((f) => f.type !== "text" || f.text.trim())) return null;
+  const label = [event.event?.headline, event.event?.amount].filter(Boolean).join(" · ");
+  return {
+    id: `evmsg-${event.platform}-${event.id}`,
+    platform: event.platform,
+    timestamp: event.timestamp,
+    author: event.author,
+    fragments: event.fragments,
+    kind: "chat",
+    viaEvent: label || undefined,
+  };
+}
 
 function youtubeMessageFragments(d: Raw): Fragment[] {
   const text = pick(d, "message", "text", "userComment", "comment");

@@ -229,6 +229,7 @@
     {/if}
   {:else}
     <PaintedName author={message.author} platform={message.platform} /><span class="colon">:</span>
+    {#if message.viaEvent}<span class="via" title="Sent with this event">{message.viaEvent}</span>{/if}
     <span class="text">{@render messageText()}</span>
   {/if}
   {#if message.modNote}
@@ -385,6 +386,19 @@
 
   .headline {
     margin-left: 4px;
+  }
+
+  /* What an event's chat line came with, e.g. "resubscribed with Tier 1 · 12 months". */
+  .via {
+    display: inline-block;
+    margin-right: 4px;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, #a970ff 22%, transparent);
+    color: var(--text-muted);
+    font-size: 0.82em;
+    line-height: 1.5;
+    vertical-align: 1px;
   }
 
   .reply-line {

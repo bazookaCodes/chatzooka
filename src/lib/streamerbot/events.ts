@@ -12,7 +12,8 @@ import { recordRaw, type RawEvent } from "../dev/rawEvents";
 import { streamInfo } from "../stream/streamInfo.svelte";
 import { liveEvents } from "../stream/liveEvents.svelte";
 import { streamerbot } from "./connection.svelte";
-import { twitchEventMappers, youtubeEventMappers } from "./eventRows";
+import { chatLineFor, twitchEventMappers, youtubeEventMappers } from "./eventRows";
+import { plainText } from "../chat/plainText";
 import { logChatSetting, modEventHandlers } from "./modEvents";
 import { onPresentViewers, resetPresence, startPresencePolling } from "./presence.svelte";
 import { startTwitchReadOnly } from "../twitch/setup.svelte";
@@ -33,14 +34,59 @@ const MAX_HOLD_MS = 600;
 const outbox: { message: ChatMessage; ready: Promise<void> }[] = [];
 let draining = false;
 
+/** How close in time an event's chat line and a real chat message must be to count as the same. */
+const SAME_MESSAGE_MS = 30_000;
+
+function sameMessage(a: ChatMessage, b: ChatMessage): boolean {
+  return (
+    a.platform === b.platform &&
+    a.author.id === b.author.id &&
+    Math.abs(a.timestamp - b.timestamp) < SAME_MESSAGE_MS &&
+    plainText(a).trim() === plainText(b).trim()
+  );
+}
+
+const isEventLine = (m: ChatMessage) => m.id.startsWith("evmsg-");
+
+/** A real chat message that repeats an event's chat line takes its place (keeping the tag). */
+function replacesEventLine(message: ChatMessage): boolean {
+  if (message.kind !== "chat" || isEventLine(message)) return false;
+  const queued = outbox.find((o) => isEventLine(o.message) && sameMessage(o.message, message));
+  if (queued) {
+    queued.message = { ...message, viaEvent: queued.message.viaEvent };
+    return true;
+  }
+  for (let i = chat.messages.length - 1; i >= 0 && i >= chat.messages.length - 200; i--) {
+    const line = chat.messages[i];
+    if (isEventLine(line) && sameMessage(line, message)) {
+      chat.updateWhere((m) => m.id === line.id, () => ({ ...message, viaEvent: line.viaEvent, seq: line.seq }));
+      return true;
+    }
+  }
+  return false;
+}
+
+/** An event row, plus its viewer message as a chat line (unless chat already has it). */
+function receiveEvent(row: ChatMessage | null): void {
+  const line = row && chatLineFor(row);
+  if (!row || !line) return receive(row);
+  // The chat line stands in for the event row in the chat feed; the Events tab keeps the row.
+  row.eventsOnly = true;
+  receive(row);
+  const recent = [...outbox.map((o) => o.message), ...chat.messages.slice(-200)];
+  if (!recent.some((m) => m.kind === "chat" && !isEventLine(m) && sameMessage(m, line))) receive(line);
+}
+
 function receive(message: ChatMessage | null): void {
   if (!message) return;
+  if (replacesEventLine(message)) return;
   if (message.platform === "twitch" && !message.replyTo) {
     const parent = twitchReplyParent(message.id);
     if (parent) message = withReply(message, parent);
   }
   message.fragments = thirdPartyEmotes.apply(message.fragments);
-  markFirstEver(message);
+  // An event's chat line isn't a "first message"; the event row already covers it.
+  if (!isEventLine(message)) markFirstEver(message);
   redemptions.track(message);
   const lookup = cosmetics.ready(message.platform, message.author.id);
   const ready = Promise.race([lookup, new Promise<void>((r) => setTimeout(r, MAX_HOLD_MS))]);
@@ -70,6 +116,14 @@ async function prefetchCosmetics(client: Parameters<Parameters<typeof streamerbo
   } catch (e) {
     console.warn("GetActiveViewers failed", e);
   }
+}
+
+/** Feed one Streamer.bot alert or chat event through the normal path (for testing from dev tools). */
+export function simulateEvent(name: string, data: any): void {
+  if (name === "Twitch.ChatMessage") return receive(twitchChatMessage(data));
+  const [source, type] = name.split(".");
+  const map = (source === "Twitch" ? twitchEventMappers : youtubeEventMappers)[type];
+  if (map) receiveEvent(map(data));
 }
 
 export function startChatEvents(): void {
@@ -157,7 +211,7 @@ export function startChatEvents(): void {
           const e = event as RawEvent;
           recordRaw(name, e);
           try {
-            receive(map(e.data ?? {}, e.timeStamp));
+            receiveEvent(map(e.data ?? {}, e.timeStamp));
           } catch (err) {
             console.warn(`Couldn't show ${name}`, err, e.data);
           }

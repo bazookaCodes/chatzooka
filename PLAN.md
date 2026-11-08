@@ -398,6 +398,10 @@ Order: R1 and R2 are local and quick; R3–R6 each need a bridge update (one v5 
 
 Not in this round: OBS overlay, Kick/TikTok, unban requests (Streamer.bot has `UnbanRequestCreated/Approved/Denied`, easy to add to R3 if wanted), Twitch shared chat (Stream Together) labels.
 
+### Event messages in the chat feed (2026-11-08)
+
+Twitch sends a viewer's sub/resub/watch-streak message as part of the event (EventSub chat notification), not as a chat message, so it only appeared inside the event row. Now `chatLineFor` (eventRows.ts) turns the message of sub, announcement, Super Chat, member-milestone and watch-streak (`Twitch.WatchStreak`, new mapper) events into a normal chat line (`id` `evmsg-…`, `viaEvent` tag shown as a chip after the name). The event row stays on the Events tab and is marked `eventsOnly` so chat doesn't show both. If the same text from the same user also arrives as a real chat message within 30 s (either order), the real message replaces the line and keeps the tag. Cheers and redemption input aren't copied: Twitch already sends those as chat messages. `simulateEvent(name, data)` in events.ts replays an event for testing.
+
 ## 11. Open questions
 
 1. **Other channels:** your channel only (the Streamer.bot setup naturally covers only your own channel), or do you also want to watch other channels?
