@@ -1,7 +1,7 @@
 // Turns Streamer.bot alert-style events (subs, raids, bits, redemptions, super chats, …) into
-// event rows. These payloads aren't documented and haven't all been seen live yet, so every
-// field is read from several likely places; dev builds record raw payloads (see events.ts) so
-// the mappings can be confirmed against real events.
+// event rows. Twitch payload schemas are at docs.streamer.bot/api/websocket/events/twitch/…;
+// fields are still read from several likely places, since not every event has been seen live,
+// and dev builds record raw payloads (see dev/rawEvents.ts) to confirm them.
 import type { ChatAuthor, ChatMessage, Fragment, MessageKind, Platform } from "../chat/types";
 import { fallbackColor, parseTime, partsToFragments, textToFragments, twitchBadges, youtubeAuthor, youtubeFragments } from "./normalize";
 
@@ -29,7 +29,9 @@ function tierName(tier: unknown): string {
 }
 
 function twitchAuthor(d: Raw): ChatAuthor {
-  const u = d.user ?? {};
+  // Who did it: `user` on most events, `targetUser` on follows, `raider` on raids
+  // (docs.streamer.bot/api/websocket/events/twitch/…).
+  const u = d.user ?? d.targetUser ?? d.raider ?? {};
   const name = pick(u, "name", "display", "displayName") ?? pick(d, "displayName", "userName", "user_name", "username", "from_broadcaster_user_name") ?? "unknown";
   return {
     id: String(pick(u, "id") ?? pick(d, "userId", "user_id", "from_broadcaster_user_id") ?? ""),
@@ -120,7 +122,7 @@ export const twitchEventMappers: Record<string, Mapper> = {
 
   // A viewer watched several streams in a row; they can attach a message, like a resub.
   WatchStreak: (d, t) => {
-    const streak = Number(pick(d, "watchStreak", "streak", "count") ?? 0);
+    const streak = Number(pick(d, "streakCount", "watchStreak", "streak", "count") ?? 0);
     const points = Number(pick(d, "channelPointsAwarded", "channel_points_awarded", "points") ?? 0);
     return row("twitch", "system", twitchAuthor(d), d, t, streak ? `is on a ${streak}-stream watch streak` : "sparked a watch streak", {
       event: { headline: streak ? `is on a ${streak}-stream watch streak` : "sparked a watch streak", amount: points ? plural(points, "point") : undefined },
