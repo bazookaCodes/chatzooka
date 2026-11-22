@@ -196,7 +196,8 @@ class PrefsStore {
 
 let onTop: boolean | null = null;
 function applyAlwaysOnTop(on: boolean): void {
-  if (on === onTop || !("__TAURI_INTERNALS__" in window)) return;
+  // Only the main window follows this; user card windows load prefs too.
+  if (on === onTop || !("__TAURI_INTERNALS__" in window) || new URLSearchParams(location.search).has("card")) return;
   onTop = on;
   void import("@tauri-apps/api/window").then(({ getCurrentWindow }) =>
     getCurrentWindow()

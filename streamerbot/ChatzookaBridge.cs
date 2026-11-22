@@ -15,6 +15,7 @@
 //   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Core.dll
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Text;
 using Newtonsoft.Json;
@@ -36,7 +37,7 @@ public class CPHInline
             {
                 case "ping":
                     ok = true;
-                    data = new { version = 7 };
+                    data = new { version = 9 };
                     break;
 
                 // --- Sending chat (bridge v7), as the broadcaster account ---
@@ -176,6 +177,16 @@ public class CPHInline
                     }
                     ok = true;
                     data = new { twitch, youtube };
+                    break;
+                }
+                // When someone followed (bridge v9). Twitch's API answers with the follow, or nothing
+                // if they don't follow.
+                case "twitch.followInfo":
+                {
+                    var follow = Helix("channels/followers?broadcaster_id=" + Uri.EscapeDataString(Required("broadcasterId"))
+                        + "&user_id=" + Uri.EscapeDataString(Required("userId")))["data"]?.First;
+                    ok = true;
+                    data = new { following = follow != null, followedAt = (string)follow?["followed_at"] };
                     break;
                 }
                 case "twitch.setTitle":
@@ -333,7 +344,13 @@ public class CPHInline
             web.Encoding = Encoding.UTF8;
             web.Headers.Add("Client-Id", CPH.TwitchClientId);
             web.Headers.Add("Authorization", "Bearer " + CPH.TwitchOAuthToken);
-            return JObject.Parse(web.DownloadString("https://api.twitch.tv/helix/" + path));
+            // Keep dates as Twitch's own text ("2026-11-21T20:00:00Z"). By default Json.NET turns
+            // them into DateTime, and reading one back as a string drops the time zone.
+            var reader = new JsonTextReader(new StringReader(web.DownloadString("https://api.twitch.tv/helix/" + path)))
+            {
+                DateParseHandling = DateParseHandling.None,
+            };
+            return JObject.Load(reader);
         }
     }
 

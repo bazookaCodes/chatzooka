@@ -27,8 +27,10 @@
   import { streamerbot } from "./lib/streamerbot/connection.svelte";
   import { startChatEvents } from "./lib/streamerbot/events";
   import { updater } from "./lib/updater.svelte";
+  import { startCardServer } from "./lib/card/server.svelte";
 
   startChatEvents();
+  startCardServer();
   void streamerbot.start();
   updater.start();
 

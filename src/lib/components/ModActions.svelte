@@ -53,10 +53,13 @@
 </div>
 
 <style>
+  /* Sits just above the hovered row (over the message before it), so the row itself stays
+     readable. The first row in view has no room above, so it keeps it inside (.tools-inside). */
   .mod-actions {
     position: absolute;
-    top: 4px;
+    bottom: calc(100% - 4px);
     right: 8px;
+    z-index: 3;
     display: none;
     gap: 2px;
     padding: 2px;
@@ -69,6 +72,11 @@
   :global(.row:hover) > .mod-actions,
   .mod-actions:has(.confirm) {
     display: flex;
+  }
+
+  :global(.row.tools-inside) > .mod-actions {
+    bottom: auto;
+    top: 4px;
   }
 
   button {

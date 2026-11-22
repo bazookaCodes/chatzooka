@@ -36,7 +36,14 @@
     message,
     alt = false,
     showPlatform = true,
-  }: { message: ChatMessage; alt?: boolean; showPlatform?: boolean } = $props();
+    tools = true,
+  }: {
+    message: ChatMessage;
+    alt?: boolean;
+    showPlatform?: boolean;
+    /** The hover toolbar (reply, moderation). Off in user cards, which have their own. */
+    tools?: boolean;
+  } = $props();
 
   const p = $derived(prefs.value);
 
@@ -56,6 +63,8 @@
   // "Collapse" mode: ignored messages show as one quiet line until clicked. (In "Hide" mode they
   // never reach this component.)
   let revealed = $state(false);
+  /** The row is at the top of the list, with no room above it for the hover toolbar. */
+  let toolsInside = $state(false);
   const collapsed = $derived(!revealed && p.ignoredDisplay === "collapse" && isIgnored(message));
   const sevenTvBadge = $derived(p.showBadges ? cosmetics.badgeFor(message.platform, message.author.id) : null);
   const platformIcon = $derived(showPlatform && p.platformIcons !== "never");
@@ -166,13 +175,19 @@
   class:labelled={!!highlight?.label}
   style:--hl={highlight?.color}
   class:deleted={message.deleted}
+  class:tools-inside={toolsInside}
+  onmouseenter={(e) => {
+    const row = e.currentTarget.getBoundingClientRect();
+    const list = e.currentTarget.closest(".chat, .scroll")?.getBoundingClientRect();
+    toolsInside = !!list && row.top - list.top < 30;
+  }}
   role="listitem"
   oncontextmenu={(e) => {
     e.preventDefault();
     contextMenu.open(message, e.clientX, e.clientY);
   }}
 >
-  {#if (canModerate(message) || reply.canReply(message)) && !message.deleted}
+  {#if tools && (canModerate(message) || reply.canReply(message)) && !message.deleted}
     <ModActions {message} />
   {/if}
   {#if highlight?.label}
@@ -290,6 +305,14 @@
 
   .row:hover {
     background: var(--bg-row-hover);
+  }
+
+  /* The hover toolbar sticks out above the row: lift the row over its neighbours and drop the
+     paint containment (from content-visibility) that would clip it. */
+  .row:hover,
+  .row:has(:global(.mod-actions .confirm)) {
+    content-visibility: visible;
+    z-index: 2;
   }
 
   .time {

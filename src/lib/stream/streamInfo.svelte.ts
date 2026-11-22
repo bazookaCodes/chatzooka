@@ -45,6 +45,17 @@ function time(v: unknown): number | undefined {
   return Number.isNaN(t) || t <= 0 ? undefined : t;
 }
 
+/**
+ * Twitch's stream start time from the bridge. Bridges before v8 sent it re-formatted without its
+ * time zone (e.g. "11/21/2026 8:00:00 PM", meaning UTC), which reads as local time; treat a time
+ * with no zone as UTC.
+ */
+function utcTime(v: unknown): number | undefined {
+  const t = time(v);
+  if (t === undefined || typeof v !== "string" || /(Z|[+-]\d\d:?\d\d)\s*$/i.test(v.trim())) return t;
+  return t - new Date(t).getTimezoneOffset() * 60_000;
+}
+
 function num(v: unknown): number | undefined {
   const n = Number(v);
   return v === undefined || v === null || v === "" || Number.isNaN(n) ? undefined : n;
@@ -131,7 +142,7 @@ class StreamInfo {
     if (t && !t.error && streamerbot.accounts.twitch) {
       this.twitch = {
         live: !!t.live,
-        startedAt: t.live ? time(t.startedAt) : undefined,
+        startedAt: t.live ? utcTime(t.startedAt) : undefined,
         viewers: t.live ? num(t.viewers) : undefined,
         title: t.title ?? this.twitch.title,
         category: t.category ?? this.twitch.category,

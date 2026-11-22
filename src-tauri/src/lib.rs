@@ -2,7 +2,9 @@ mod link_preview;
 mod link_safety;
 mod secrets;
 
+use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
+use tauri_plugin_window_state::{StateFlags, WindowExt};
 
 /// Local history database (lives in the app data folder). Each migration runs once, in order.
 fn migrations() -> Vec<Migration> {
@@ -50,9 +52,25 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // The window starts hidden (tauri.conf.json); setup moves it to where it was last time and
+        // only then shows it, so it never appears at the default spot first.
+        // User card windows (card-…) aren't remembered: each opens centred on the main window.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .skip_initial_state("main")
+                .with_filter(|label| !label.starts_with("card-"))
+                .build(),
+        )
         .manage(link_safety::SafetyState::default())
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = window.restore_state(StateFlags::all() & !StateFlags::VISIBLE) {
+                    eprintln!("Couldn't restore the window position: {e}");
+                }
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+
             // Load the phishing lists and refresh them in the background (every 12 hours).
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
